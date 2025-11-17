@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Firestore Test</title>
+</head>
+<body>
+    <h1>Firestore Data Check</h1>
+    <button onclick="checkData()">Check Subcategories</button>
+    <pre id="output"></pre>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, getDocs, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDbGQvEoVsBqLYiiYsy_5JD3Xz6TUKIq0c",
+            authDomain: "bca-point-2.firebaseapp.com",
+            projectId: "bca-point-2",
+            storageBucket: "bca-point-2.firebasestorage.app",
+            messagingSenderId: "172385715450",
+            appId: "1:172385715450:web:d87c9818b5990e82b0b543"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.checkData = async function() {
+            const output = document.getElementById('output');
+            output.textContent = 'Loading...\n';
+
+            try {
+                // Get all categories
+                const categoriesSnap = await getDocs(collection(db, 'categories'));
+                output.textContent += '\n=== CATEGORIES ===\n';
+                categoriesSnap.forEach(doc => {
+                    output.textContent += `ID: ${doc.id}\nTitle: ${doc.data().title}\n\n`;
+                });
+
+                // Get all subcategories (without orderBy first)
+                const subcategoriesSnap = await getDocs(collection(db, 'subcategories'));
+                output.textContent += '\n=== SUBCATEGORIES (All) ===\n';
+                subcategoriesSnap.forEach(doc => {
+                    const data = doc.data();
+                    output.textContent += `ID: ${doc.id}\nTitle: ${data.title}\nCategoryID: ${data.categoryId}\nOrder: ${data.order}\n\n`;
+                });
+
+                // Try with query
+                if (categoriesSnap.docs.length > 0) {
+                    const firstCategoryId = categoriesSnap.docs[0].id;
+                    output.textContent += `\n=== SUBCATEGORIES for ${firstCategoryId} (with query) ===\n`;
+                    
+                    try {
+                        const q = query(
+                            collection(db, 'subcategories'),
+                            where('categoryId', '==', firstCategoryId),
+                            orderBy('order')
+                        );
+                        const querySnap = await getDocs(q);
+                        output.textContent += `Found ${querySnap.size} subcategories\n`;
+                        querySnap.forEach(doc => {
+                            output.textContent += `- ${doc.data().title}\n`;
+                        });
+                    } catch (error) {
+                        output.textContent += `Query Error: ${error.message}\n`;
+                        output.textContent += `This means the index is not created yet!\n`;
+                    }
+                }
+
+            } catch (error) {
+                output.textContent += `\nError: ${error.message}\n`;
+            }
+        };
+    </script>
+</body>
+</html>
