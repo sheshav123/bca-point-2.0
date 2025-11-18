@@ -206,82 +206,81 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
   Widget _buildAnnotationToolbar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       color: Colors.grey[200],
-      child: Row(
-        children: [
-          const Text('Tools:', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(width: 8),
-          _buildToolButton(
-            icon: Icons.highlight,
-            label: 'Highlight',
-            type: AnnotationType.highlight,
-            color: Colors.yellow,
-          ),
-          _buildToolButton(
-            icon: Icons.format_underline,
-            label: 'Underline',
-            type: AnnotationType.underline,
-            color: Colors.red,
-          ),
-          _buildToolButton(
-            icon: Icons.draw,
-            label: 'Draw',
-            type: AnnotationType.drawing,
-            color: Colors.blue,
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 20),
-            onPressed: _showClearAnnotationsDialog,
-            tooltip: 'Clear All',
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Text('Tools:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+            _buildToolButton(
+              icon: Icons.highlight,
+              type: AnnotationType.highlight,
+              color: Colors.yellow.shade700,
+            ),
+            const SizedBox(width: 4),
+            _buildToolButton(
+              icon: Icons.format_underline,
+              type: AnnotationType.underline,
+              color: Colors.red,
+            ),
+            const SizedBox(width: 4),
+            _buildToolButton(
+              icon: Icons.draw,
+              type: AnnotationType.drawing,
+              color: Colors.blue,
+            ),
+            const SizedBox(width: 8),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              child: IconButton(
+                icon: const Icon(Icons.delete_outline, size: 20),
+                onPressed: _showClearAnnotationsDialog,
+                tooltip: 'Clear All',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildToolButton({
     required IconData icon,
-    required String label,
     required AnnotationType type,
     required Color color,
   }) {
     final isSelected = _currentAnnotationType == type;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _currentAnnotationType = type;
-            _currentColor = color;
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.3) : Colors.transparent,
-            border: Border.all(
-              color: isSelected ? color : Colors.grey,
-              width: 2,
-            ),
-            borderRadius: BorderRadius.circular(8),
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _currentAnnotationType = type;
+          _currentColor = color;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${type.name.toUpperCase()} mode activated'),
+            duration: const Duration(seconds: 1),
+            backgroundColor: color,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ],
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.3) : Colors.white,
+          border: Border.all(
+            color: isSelected ? color : Colors.grey.shade400,
+            width: 2,
           ),
+          borderRadius: BorderRadius.circular(8),
         ),
+        child: Icon(icon, size: 24, color: color),
       ),
     );
   }
@@ -402,40 +401,69 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   }
 
   List<Offset> _currentDrawingPoints = [];
+  bool _isSaving = false;
 
   void _onPanStart(DragStartDetails details) {
-    setState(() {
-      _currentDrawingPoints = [details.localPosition];
-    });
+    if (_currentAnnotationType == null) return;
+    _currentDrawingPoints = [details.localPosition];
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
+    if (_currentAnnotationType == null || _currentDrawingPoints.isEmpty) return;
+    
     setState(() {
       _currentDrawingPoints.add(details.localPosition);
     });
   }
 
   void _onPanEnd(DragEndDetails details) async {
-    if (_currentDrawingPoints.isEmpty) return;
+    if (_currentDrawingPoints.isEmpty || _currentAnnotationType == null || _isSaving) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final annotation = PdfAnnotation(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      materialId: widget.material.id,
-      userId: authProvider.user!.uid,
-      type: _currentAnnotationType!,
-      pageNumber: _pdfController.pageNumber,
-      points: List.from(_currentDrawingPoints),
-      color: _currentColor,
-      strokeWidth: _currentAnnotationType == AnnotationType.highlight ? 10.0 : 2.0,
-      createdAt: DateTime.now(),
-    );
+    _isSaving = true;
+    
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final annotation = PdfAnnotation(
+        id: '${authProvider.user!.uid}_${DateTime.now().millisecondsSinceEpoch}',
+        materialId: widget.material.id,
+        userId: authProvider.user!.uid,
+        type: _currentAnnotationType!,
+        pageNumber: _pdfController.pageNumber,
+        points: List.from(_currentDrawingPoints),
+        color: _currentColor,
+        strokeWidth: _currentAnnotationType == AnnotationType.highlight ? 15.0 : 3.0,
+        createdAt: DateTime.now(),
+      );
 
-    await _annotationService.saveAnnotation(annotation);
-
-    setState(() {
-      _currentDrawingPoints = [];
-    });
+      // Save to Firestore
+      await _annotationService.saveAnnotation(annotation);
+      
+      // Show success feedback
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_currentAnnotationType!.name.toUpperCase()} saved!'),
+            duration: const Duration(milliseconds: 500),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving annotation: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to save annotation'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _currentDrawingPoints = [];
+        _isSaving = false;
+      });
+    }
   }
 }
 
@@ -456,50 +484,69 @@ class AnnotationPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Draw saved annotations
     for (var annotation in annotations) {
+      if (annotation.points.length < 2) continue;
+      
       final paint = Paint()
-        ..color = annotation.color
         ..strokeWidth = annotation.strokeWidth
-        ..style = annotation.type == AnnotationType.highlight
-            ? PaintingStyle.stroke
-            : PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
 
       if (annotation.type == AnnotationType.highlight) {
-        paint.color = annotation.color.withOpacity(0.3);
-        paint.style = PaintingStyle.fill;
+        paint.color = annotation.color.withOpacity(0.4);
+        paint.strokeWidth = 15.0;
+      } else if (annotation.type == AnnotationType.underline) {
+        paint.color = annotation.color;
+        paint.strokeWidth = 3.0;
+      } else {
+        paint.color = annotation.color;
+        paint.strokeWidth = 3.0;
       }
 
-      for (int i = 0; i < annotation.points.length - 1; i++) {
-        canvas.drawLine(
-          annotation.points[i],
-          annotation.points[i + 1],
-          paint,
-        );
+      // Draw path for better performance
+      final path = Path();
+      path.moveTo(annotation.points[0].dx, annotation.points[0].dy);
+      
+      for (int i = 1; i < annotation.points.length; i++) {
+        path.lineTo(annotation.points[i].dx, annotation.points[i].dy);
       }
+      
+      canvas.drawPath(path, paint);
     }
 
     // Draw current drawing
-    if (currentPoints.isNotEmpty && currentType != null) {
+    if (currentPoints.length >= 2 && currentType != null) {
       final paint = Paint()
-        ..color = currentColor
-        ..strokeWidth = currentType == AnnotationType.highlight ? 10.0 : 2.0
         ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
 
       if (currentType == AnnotationType.highlight) {
-        paint.color = currentColor.withOpacity(0.3);
+        paint.color = currentColor.withOpacity(0.4);
+        paint.strokeWidth = 15.0;
+      } else if (currentType == AnnotationType.underline) {
+        paint.color = currentColor;
+        paint.strokeWidth = 3.0;
+      } else {
+        paint.color = currentColor;
+        paint.strokeWidth = 3.0;
       }
 
-      for (int i = 0; i < currentPoints.length - 1; i++) {
-        canvas.drawLine(
-          currentPoints[i],
-          currentPoints[i + 1],
-          paint,
-        );
+      // Draw path for better performance
+      final path = Path();
+      path.moveTo(currentPoints[0].dx, currentPoints[0].dy);
+      
+      for (int i = 1; i < currentPoints.length; i++) {
+        path.lineTo(currentPoints[i].dx, currentPoints[i].dy);
       }
+      
+      canvas.drawPath(path, paint);
     }
   }
 
   @override
-  bool shouldRepaint(AnnotationPainter oldDelegate) => true;
+  bool shouldRepaint(AnnotationPainter oldDelegate) {
+    return oldDelegate.currentPoints.length != currentPoints.length ||
+           oldDelegate.annotations.length != annotations.length;
+  }
 }
