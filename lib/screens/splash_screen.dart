@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../providers/auth_provider.dart';
+import '../providers/auth_provider.dart' as auth;
 import 'login_screen.dart';
 import 'profile_setup_screen.dart';
 import 'home_screen.dart';
@@ -40,7 +40,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted || _hasNavigated) return;
 
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final authProvider = Provider.of<auth.AuthProvider>(context, listen: false);
       final currentUser = FirebaseAuth.instance.currentUser;
       
       debugPrint('Splash: Current user: ${currentUser?.uid ?? "null"}');
