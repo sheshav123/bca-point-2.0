@@ -6,6 +6,7 @@ import '../providers/category_provider.dart';
 import '../providers/ad_provider.dart';
 import '../widgets/app_drawer.dart';
 import 'category_detail_screen.dart';
+import 'debug_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,6 +36,16 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('BCA Point 2.0'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DebugScreen()),
+              );
+            },
+            tooltip: 'Debug Database',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => categoryProvider.loadCategories(),
