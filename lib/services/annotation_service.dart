@@ -8,12 +8,17 @@ class AnnotationService {
   // Save annotation
   Future<void> saveAnnotation(PdfAnnotation annotation) async {
     try {
+      final data = annotation.toMap();
+      debugPrint('Annotation data to save: $data');
+      
       await _firestore
           .collection('annotations')
           .doc(annotation.id)
-          .set(annotation.toMap());
+          .set(data);
+      
+      debugPrint('Annotation saved to Firestore successfully');
     } catch (e) {
-      debugPrint('Error saving annotation: $e');
+      debugPrint('Error saving annotation to Firestore: $e');
       rethrow;
     }
   }

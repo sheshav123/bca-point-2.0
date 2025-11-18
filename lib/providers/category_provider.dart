@@ -53,20 +53,22 @@ class CategoryProvider extends ChangeNotifier {
 
   // Get subcategories by parent (category or subcategory) - handles both old and new data
   Stream<List<SubcategoryModel>> getSubcategoriesByParent(String parentType, String parentId) {
-    debugPrint('Loading subcategories for $parentType: $parentId');
+    debugPrint('🔍 Loading subcategories for $parentType: $parentId');
     
     return _firestore
         .collection('subcategories')
         .snapshots()
         .map((snapshot) {
-          debugPrint('Total subcategories in DB: ${snapshot.docs.length}');
+          debugPrint('📊 Total subcategories in DB: ${snapshot.docs.length}');
           
           final allSubcategories = snapshot.docs
               .map((doc) {
                 try {
-                  return SubcategoryModel.fromMap(doc.data(), doc.id);
+                  final data = doc.data();
+                  debugPrint('📄 Doc ${doc.id}: parentType="${data['parentType']}", parentId="${data['parentId']}", categoryId="${data['categoryId']}"');
+                  return SubcategoryModel.fromMap(data, doc.id);
                 } catch (e) {
-                  debugPrint('Error parsing subcategory ${doc.id}: $e');
+                  debugPrint('❌ Error parsing subcategory ${doc.id}: $e');
                   return null;
                 }
               })
@@ -74,20 +76,23 @@ class CategoryProvider extends ChangeNotifier {
               .toList();
           
           final filtered = allSubcategories.where((subcat) {
+            debugPrint('🔎 Checking ${subcat.title}: parentType="${subcat.parentType}" vs "$parentType", parentId="${subcat.parentId}" vs "$parentId"');
+            
             // Handle new structure
             if (subcat.parentType == parentType && subcat.parentId == parentId) {
-              debugPrint('Match (new): ${subcat.title}');
+              debugPrint('✅ Match (new): ${subcat.title}');
               return true;
             }
             // Handle old structure (backward compatibility)
             if (parentType == 'category' && subcat.categoryId == parentId) {
-              debugPrint('Match (old): ${subcat.title}');
+              debugPrint('✅ Match (old): ${subcat.title}');
               return true;
             }
+            debugPrint('❌ No match for: ${subcat.title}');
             return false;
           }).toList();
           
-          debugPrint('Filtered subcategories: ${filtered.length}');
+          debugPrint('✨ Filtered subcategories: ${filtered.length}');
           filtered.sort((a, b) => a.order.compareTo(b.order));
           return filtered;
         });

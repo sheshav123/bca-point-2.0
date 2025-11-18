@@ -3,6 +3,7 @@ class CategoryModel {
   final String title;
   final String? description;
   final int order;
+  final bool isPremium;
   final DateTime createdAt;
 
   CategoryModel({
@@ -10,6 +11,7 @@ class CategoryModel {
     required this.title,
     this.description,
     required this.order,
+    this.isPremium = false,
     required this.createdAt,
   });
 
@@ -19,6 +21,7 @@ class CategoryModel {
       'title': title,
       'description': description,
       'order': order,
+      'isPremium': isPremium,
       'createdAt': createdAt.toIso8601String(),
     };
   }
@@ -29,6 +32,7 @@ class CategoryModel {
       title: map['title'] ?? '',
       description: map['description'],
       order: map['order'] ?? 0,
+      isPremium: map['isPremium'] ?? false,
       createdAt: DateTime.parse(map['createdAt']),
     );
   }

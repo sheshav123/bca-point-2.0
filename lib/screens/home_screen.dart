@@ -4,6 +4,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../providers/auth_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/ad_provider.dart';
+import '../providers/purchase_provider.dart';
 import '../widgets/app_drawer.dart';
 import 'category_detail_screen.dart';
 import 'debug_screen.dart';
@@ -36,6 +37,40 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('BCA Point 2.0'),
         actions: [
+          Consumer<PurchaseProvider>(
+            builder: (context, purchaseProvider, _) {
+              if (authProvider.userModel?.adFree == true || purchaseProvider.isPurchased) {
+                return Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Colors.amber, Colors.orange],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.workspace_premium, size: 18, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'PREMIUM',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Icon(Icons.auto_awesome, size: 14, color: Colors.white),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.bug_report),
             onPressed: () {
@@ -126,43 +161,101 @@ class _HomeScreenState extends State<HomeScreen> {
                         itemCount: categoryProvider.categories.length,
                         itemBuilder: (context, index) {
                           final category = categoryProvider.categories[index];
+                          final isPremium = category.isPremium;
+                          final hasPremium = authProvider.userModel?.adFree == true ||
+                              Provider.of<PurchaseProvider>(context, listen: false).isPurchased;
+                          final isLocked = isPremium && !hasPremium;
+                          
                           return Card(
                             elevation: 2,
                             margin: const EdgeInsets.only(bottom: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(16),
-                              leading: CircleAvatar(
-                                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                                child: Icon(
-                                  Icons.folder,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                              title: Text(
-                                category.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              subtitle: category.description != null
-                                  ? Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Text(category.description!),
-                                    )
-                                  : null,
-                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => CategoryDetailScreen(category: category),
+                            child: Stack(
+                              children: [
+                                ListTile(
+                                  contentPadding: const EdgeInsets.all(16),
+                                  leading: CircleAvatar(
+                                    backgroundColor: isLocked
+                                        ? Colors.grey.withOpacity(0.2)
+                                        : Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                    child: Icon(
+                                      isLocked ? Icons.lock : Icons.folder,
+                                      color: isLocked
+                                          ? Colors.grey
+                                          : Theme.of(context).colorScheme.primary,
+                                    ),
                                   ),
-                                );
-                              },
+                                  title: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          category.title,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 16,
+                                            color: isLocked ? Colors.grey : null,
+                                          ),
+                                        ),
+                                      ),
+                                      if (isPremium)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [Colors.amber, Colors.orange],
+                                            ),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.workspace_premium, size: 12, color: Colors.white),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                'PREMIUM',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  subtitle: category.description != null
+                                      ? Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Text(
+                                            category.description!,
+                                            style: TextStyle(
+                                              color: isLocked ? Colors.grey : null,
+                                            ),
+                                          ),
+                                        )
+                                      : null,
+                                  trailing: Icon(
+                                    isLocked ? Icons.lock : Icons.arrow_forward_ios,
+                                    size: 16,
+                                    color: isLocked ? Colors.grey : null,
+                                  ),
+                                  onTap: () {
+                                    if (isLocked) {
+                                      _showPremiumUpgradeDialog(context);
+                                      return;
+                                    }
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => CategoryDetailScreen(category: category),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
                           );
                         },
@@ -174,6 +267,122 @@ class _HomeScreenState extends State<HomeScreen> {
               alignment: Alignment.center,
               child: AdWidget(ad: adProvider.bannerAd!),
             ),
+        ],
+      ),
+    );
+  }
+
+  void _showPremiumUpgradeDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.lock, color: Colors.amber),
+            const SizedBox(width: 8),
+            const Text('Premium Content'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.workspace_premium, size: 64, color: Colors.amber),
+            const SizedBox(height: 16),
+            const Text(
+              'This category is exclusive to Premium members',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  _buildBenefit(Icons.block, 'No rewarded ads'),
+                  _buildBenefit(Icons.lock_open, 'All premium categories'),
+                  _buildBenefit(Icons.flash_on, 'Instant access'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Maybe Later'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigate to purchase
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final purchaseProvider = Provider.of<PurchaseProvider>(context, listen: false);
+              _showPurchaseFromDialog(context, authProvider, purchaseProvider);
+            },
+            icon: const Icon(Icons.workspace_premium),
+            label: const Text('Upgrade ₹100'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBenefit(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.green),
+          const SizedBox(width: 8),
+          Text(text, style: const TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  void _showPurchaseFromDialog(BuildContext context, AuthProvider authProvider, PurchaseProvider purchaseProvider) {
+    // Reuse the purchase dialog from AppDrawer
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.workspace_premium, color: Colors.amber),
+            const SizedBox(width: 8),
+            const Text('Upgrade to Premium'),
+          ],
+        ),
+        content: const Text('Upgrade to premium for ₹100 (one-time payment)'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final success = await purchaseProvider.purchaseAdFree(authProvider.user!.uid);
+              if (context.mounted) {
+                Navigator.pop(context);
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('🎉 Welcome to Premium!'),
+                      backgroundColor: Colors.amber,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Upgrade ₹100'),
+          ),
         ],
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/secure_pdf_cache.dart';
+import '../widgets/banner_ad_widget.dart';
 
 class CacheManagementScreen extends StatefulWidget {
   const CacheManagementScreen({super.key});
@@ -82,9 +83,12 @@ class _CacheManagementScreenState extends State<CacheManagementScreen> {
       appBar: AppBar(
         title: const Text('Cache Management'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
+      body: Column(
+        children: [
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 Card(
@@ -167,6 +171,10 @@ class _CacheManagementScreenState extends State<CacheManagementScreen> {
                 ),
               ],
             ),
+          ),
+          const BannerAdWidget(),
+        ],
+      ),
     );
   }
 

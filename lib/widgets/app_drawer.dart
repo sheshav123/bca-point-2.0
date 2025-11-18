@@ -93,15 +93,21 @@ class AppDrawer extends StatelessWidget {
             builder: (context, purchaseProvider, _) {
               if (user?.adFree == true || purchaseProvider.isPurchased) {
                 return ListTile(
-                  leading: const Icon(Icons.check_circle, color: Colors.green),
-                  title: const Text('Ad-Free Active'),
-                  subtitle: const Text('Rewarded ads removed'),
-                  trailing: const Icon(Icons.verified, color: Colors.green),
+                  leading: const Icon(Icons.workspace_premium, color: Colors.amber),
+                  title: const Row(
+                    children: [
+                      Text('Premium Active'),
+                      SizedBox(width: 8),
+                      Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                    ],
+                  ),
+                  subtitle: const Text('No ads • Premium categories'),
+                  trailing: const Icon(Icons.verified, color: Colors.amber),
                 );
               }
               return ListTile(
-                leading: const Icon(Icons.remove_circle_outline, color: Colors.orange),
-                title: const Text('Remove Rewarded Ads'),
+                leading: const Icon(Icons.workspace_premium, color: Colors.amber),
+                title: const Text('Upgrade to Premium'),
                 subtitle: const Text('₹100 - Lifetime'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
@@ -238,18 +244,51 @@ class AppDrawer extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove Rewarded Ads'),
+        title: Row(
+          children: [
+            const Icon(Icons.workspace_premium, color: Colors.amber),
+            const SizedBox(width: 8),
+            const Text('Upgrade to Premium'),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Get ad-free experience for lifetime!'),
+            const Text(
+              'Unlock all premium features!',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
             const SizedBox(height: 16),
-            const Text('✓ No more rewarded ads before PDFs', style: TextStyle(color: Colors.green)),
-            const Text('✓ Instant access to all materials', style: TextStyle(color: Colors.green)),
-            const Text('✓ One-time payment of ₹100', style: TextStyle(color: Colors.green)),
+            _buildFeature(Icons.block, 'No rewarded ads'),
+            _buildFeature(Icons.lock_open, 'Access premium categories'),
+            _buildFeature(Icons.flash_on, 'Instant PDF access'),
+            _buildFeature(Icons.auto_awesome, 'Premium badge'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.workspace_premium, color: Colors.amber),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'One-time payment of ₹100',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 8),
-            const Text('Note: Banner ads will still be shown', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Text(
+              'Note: Banner ads will still be shown',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ],
         ),
         actions: [
@@ -266,7 +305,16 @@ class AppDrawer extends StatelessWidget {
                       Navigator.pop(context);
                       if (success) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Purchase successful! Enjoy ad-free experience.')),
+                          const SnackBar(
+                            content: Row(
+                              children: [
+                                Icon(Icons.workspace_premium, color: Colors.white),
+                                SizedBox(width: 8),
+                                Text('🎉 Welcome to Premium!'),
+                              ],
+                            ),
+                            backgroundColor: Colors.amber,
+                          ),
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -281,8 +329,28 @@ class AppDrawer extends StatelessWidget {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Purchase ₹100'),
+                : const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.workspace_premium),
+                      SizedBox(width: 8),
+                      Text('Upgrade ₹100'),
+                    ],
+                  ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeature(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.green),
+          const SizedBox(width: 12),
+          Text(text),
         ],
       ),
     );
@@ -312,45 +380,129 @@ class AppDrawer extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              // Don't pop yet - keep context alive
+              final firstDialogContext = context;
               
-              // Show confirmation dialog
+              // Show confirmation dialog with text input
+              final textController = TextEditingController();
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Final Confirmation'),
-                  content: const Text('Type "DELETE" to confirm account deletion'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'This action cannot be undone!',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('Type "DELETE" to confirm:'),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: textController,
+                        decoration: const InputDecoration(
+                          hintText: 'DELETE',
+                          border: OutlineInputBorder(),
+                        ),
+                        textCapitalization: TextCapitalization.characters,
+                        autofocus: true,
+                      ),
+                    ],
+                  ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context, false),
                       child: const Text('Cancel'),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.pop(context, true),
+                      onPressed: () {
+                        if (textController.text.trim().toUpperCase() == 'DELETE') {
+                          Navigator.pop(context, true);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please type "DELETE" to confirm'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                        }
+                      },
                       child: const Text('Confirm', style: TextStyle(color: Colors.red)),
                     ),
                   ],
                 ),
               );
               
-              if (confirmed == true && context.mounted) {
-                try {
-                  await authProvider.deleteAccount();
-                  if (context.mounted) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      (route) => false,
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Account deleted successfully')),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error deleting account: $e')),
-                    );
-                  }
+              debugPrint('🔍 Dialog result: $confirmed');
+              
+              // Close the first dialog now
+              Navigator.pop(firstDialogContext);
+              
+              if (confirmed != true) {
+                debugPrint('❌ User cancelled deletion');
+                return;
+              }
+              
+              if (!context.mounted) {
+                debugPrint('❌ Context not mounted');
+                return;
+              }
+              
+              debugPrint('✅ User confirmed deletion, proceeding...');
+              
+              // Show loading dialog
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Deleting account...'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+              
+              try {
+                await authProvider.deleteAccount();
+                
+                if (context.mounted) {
+                  Navigator.pop(context); // Close loading dialog
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Account deleted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                debugPrint('❌ Error in dialog handler: $e');
+                if (context.mounted) {
+                  Navigator.pop(context); // Close loading dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('❌ Error deleting account: $e'),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 5),
+                    ),
+                  );
                 }
               }
             },

@@ -43,23 +43,77 @@ class AuthProvider extends ChangeNotifier {
   }
   
   Future<void> deleteAccount() async {
-    if (_user == null) return;
+    if (_user == null) {
+      debugPrint('❌ No user to delete');
+      return;
+    }
     
     try {
+      debugPrint('🗑️ Starting account deletion for user: ${_user!.uid}');
+      
+      final userId = _user!.uid;
+      
+      // Try to re-authenticate (may fail if recently authenticated)
+      try {
+        debugPrint('🔐 Attempting re-authentication...');
+        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+        if (googleUser != null) {
+          final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+          final credential = GoogleAuthProvider.credential(
+            accessToken: googleAuth.accessToken,
+            idToken: googleAuth.idToken,
+          );
+          await _user!.reauthenticateWithCredential(credential);
+          debugPrint('✅ Re-authentication successful');
+        } else {
+          debugPrint('⚠️ User cancelled re-authentication, proceeding anyway...');
+        }
+      } catch (reAuthError) {
+        debugPrint('⚠️ Re-authentication failed: $reAuthError');
+        debugPrint('⚠️ Proceeding with deletion anyway...');
+      }
+      
       // Delete user data from Firestore
-      await _firestore.collection('users').doc(_user!.uid).delete();
+      debugPrint('🗑️ Deleting user data from Firestore...');
+      await _firestore.collection('users').doc(userId).delete();
+      debugPrint('✅ User data deleted');
+      
+      // Delete user annotations
+      debugPrint('🗑️ Deleting user annotations...');
+      final annotations = await _firestore
+          .collection('annotations')
+          .where('userId', isEqualTo: userId)
+          .get();
+      debugPrint('📝 Found ${annotations.docs.length} annotations to delete');
+      for (var doc in annotations.docs) {
+        await doc.reference.delete();
+      }
+      debugPrint('✅ Annotations deleted');
       
       // Delete the Firebase Auth account
+      debugPrint('🗑️ Deleting Firebase Auth account...');
       await _user!.delete();
+      debugPrint('✅ Firebase Auth account deleted');
+      
+      // Sign out from Firebase Auth (just in case)
+      debugPrint('👋 Signing out from Firebase Auth...');
+      await _auth.signOut();
+      debugPrint('✅ Signed out from Firebase Auth');
       
       // Sign out from Google
+      debugPrint('👋 Signing out from Google...');
       await _googleSignIn.signOut();
+      debugPrint('✅ Signed out from Google');
       
+      // Clear local state
       _user = null;
       _userModel = null;
       notifyListeners();
-    } catch (e) {
-      debugPrint('Error deleting account: $e');
+      
+      debugPrint('✅✅✅ Account deleted successfully!');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error deleting account: $e');
+      debugPrint('Stack trace: $stackTrace');
       rethrow;
     }
   }
@@ -98,6 +152,9 @@ class AuthProvider extends ChangeNotifier {
     required String name,
     required String collegeName,
     required String semester,
+    String? university,
+    String? phone,
+    String? email,
   }) async {
     if (_user == null) return false;
 
@@ -105,6 +162,29 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
+      final userData = {
+        'uid': _user!.uid,
+        'email': _user!.email!,
+        'name': name,
+        'collegeName': collegeName,
+        'semester': semester,
+        'photoUrl': _user!.photoURL,
+        'createdAt': DateTime.now().toIso8601String(),
+      };
+
+      // Add optional fields if provided
+      if (university != null && university.isNotEmpty) {
+        userData['university'] = university;
+      }
+      if (phone != null && phone.isNotEmpty) {
+        userData['phone'] = phone;
+      }
+      if (email != null && email.isNotEmpty) {
+        userData['contactEmail'] = email;
+      }
+
+      await _firestore.collection('users').doc(_user!.uid).set(userData);
+      
       final userModel = UserModel(
         uid: _user!.uid,
         email: _user!.email!,
@@ -114,8 +194,7 @@ class AuthProvider extends ChangeNotifier {
         photoUrl: _user!.photoURL,
         createdAt: DateTime.now(),
       );
-
-      await _firestore.collection('users').doc(_user!.uid).set(userModel.toMap());
+      
       _userModel = userModel;
       _isLoading = false;
       notifyListeners();

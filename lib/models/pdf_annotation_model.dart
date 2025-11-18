@@ -38,7 +38,10 @@ class PdfAnnotation {
       'userId': userId,
       'type': type.name,
       'pageNumber': pageNumber,
-      'points': points.map((p) => {'dx': p.dx, 'dy': p.dy}).toList(),
+      'points': points.map((p) => {
+        'dx': p.dx.isFinite ? p.dx : 0.0,
+        'dy': p.dy.isFinite ? p.dy : 0.0,
+      }).toList(),
       'rect': rect != null
           ? {
               'left': rect!.left,

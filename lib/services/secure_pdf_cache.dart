@@ -97,10 +97,36 @@ class SecurePdfCache {
 
       // Encrypt the PDF data
       final pdfBytes = Uint8List.fromList(response.data);
+      debugPrint('📦 Downloaded PDF: ${pdfBytes.length} bytes');
+      
       final encryptedData = _encryptBytes(pdfBytes);
+      debugPrint('🔒 Encrypted PDF: ${encryptedData.length} bytes');
 
       // Save encrypted file
       await encryptedFile.writeAsBytes(encryptedData);
+
+      // Verify the file was written correctly
+      final verifySize = await encryptedFile.length();
+      if (verifySize != encryptedData.length) {
+        debugPrint('❌ File write verification failed! Expected: ${encryptedData.length}, Got: $verifySize');
+        await encryptedFile.delete();
+        return null;
+      }
+
+      // Test decryption to ensure it works
+      try {
+        final testDecrypt = _decryptBytes(encryptedData);
+        if (testDecrypt.isEmpty || testDecrypt.length != pdfBytes.length) {
+          debugPrint('❌ Decryption test failed! Deleting corrupted cache.');
+          await encryptedFile.delete();
+          return null;
+        }
+        debugPrint('✅ Decryption test passed');
+      } catch (e) {
+        debugPrint('❌ Decryption test error: $e');
+        await encryptedFile.delete();
+        return null;
+      }
 
       // Save metadata
       final prefs = await SharedPreferences.getInstance();
@@ -108,7 +134,7 @@ class SecurePdfCache {
       await prefs.setInt('pdf_size_$materialId', pdfBytes.length);
       await prefs.setString('pdf_cached_$materialId', DateTime.now().toIso8601String());
 
-      debugPrint('PDF cached successfully: $materialId');
+      debugPrint('✅ PDF cached successfully: $materialId');
       return encryptedFile;
     } catch (e) {
       debugPrint('Error downloading PDF: $e');
@@ -124,18 +150,46 @@ class SecurePdfCache {
       final encryptedFile = File('${cacheDir.path}/$fileName');
 
       if (!await encryptedFile.exists()) {
+        debugPrint('❌ Cached file does not exist: $fileName');
         return null;
       }
 
+      debugPrint('📖 Reading cached PDF: $fileName');
+
       // Read encrypted data
       final encryptedData = await encryptedFile.readAsBytes();
+      
+      if (encryptedData.isEmpty) {
+        debugPrint('❌ Cached file is empty, deleting: $fileName');
+        await encryptedFile.delete();
+        return null;
+      }
 
       // Decrypt the data
       final decryptedData = _decryptBytes(encryptedData);
+      
+      if (decryptedData.isEmpty) {
+        debugPrint('❌ Decryption failed, deleting corrupted cache: $fileName');
+        await encryptedFile.delete();
+        return null;
+      }
 
+      debugPrint('✅ Successfully decrypted PDF: ${decryptedData.length} bytes');
       return decryptedData;
     } catch (e) {
-      debugPrint('Error reading cached PDF: $e');
+      debugPrint('❌ Error reading cached PDF: $e');
+      // Delete corrupted cache file
+      try {
+        final cacheDir = await _getCacheDirectory();
+        final fileName = _getSecureFileName(url);
+        final encryptedFile = File('${cacheDir.path}/$fileName');
+        if (await encryptedFile.exists()) {
+          await encryptedFile.delete();
+          debugPrint('🗑️ Deleted corrupted cache file');
+        }
+      } catch (deleteError) {
+        debugPrint('Error deleting corrupted file: $deleteError');
+      }
       return null;
     }
   }
@@ -158,22 +212,37 @@ class SecurePdfCache {
 
   // Decrypt bytes
   Uint8List _decryptBytes(Uint8List encryptedData) {
-    // Decrypt in chunks
-    const chunkSize = 1024 * 1024 + 16; // Encrypted chunk size (includes padding)
-    final decryptedChunks = <int>[];
+    try {
+      // Decrypt in chunks
+      const chunkSize = 1024 * 1024 + 16; // Encrypted chunk size (includes padding)
+      final decryptedChunks = <int>[];
+      int successfulChunks = 0;
+      int failedChunks = 0;
 
-    for (var i = 0; i < encryptedData.length; i += chunkSize) {
-      final end = (i + chunkSize < encryptedData.length) ? i + chunkSize : encryptedData.length;
-      final chunk = encryptedData.sublist(i, end);
-      try {
-        final decrypted = _encrypter.decryptBytes(encrypt.Encrypted(chunk), iv: _iv);
-        decryptedChunks.addAll(decrypted);
-      } catch (e) {
-        debugPrint('Error decrypting chunk: $e');
+      for (var i = 0; i < encryptedData.length; i += chunkSize) {
+        final end = (i + chunkSize < encryptedData.length) ? i + chunkSize : encryptedData.length;
+        final chunk = encryptedData.sublist(i, end);
+        try {
+          final decrypted = _encrypter.decryptBytes(encrypt.Encrypted(chunk), iv: _iv);
+          decryptedChunks.addAll(decrypted);
+          successfulChunks++;
+        } catch (e) {
+          debugPrint('❌ Error decrypting chunk at position $i: $e');
+          failedChunks++;
+          // If too many chunks fail, the file is corrupted
+          if (failedChunks > 3) {
+            debugPrint('❌ Too many failed chunks ($failedChunks), file is corrupted');
+            return Uint8List(0);
+          }
+        }
       }
-    }
 
-    return Uint8List.fromList(decryptedChunks);
+      debugPrint('✅ Decryption complete: $successfulChunks chunks successful, $failedChunks failed');
+      return Uint8List.fromList(decryptedChunks);
+    } catch (e) {
+      debugPrint('❌ Fatal decryption error: $e');
+      return Uint8List(0);
+    }
   }
 
   // Get cache size

@@ -7,14 +7,16 @@ class AdProvider extends ChangeNotifier {
   RewardedAd? _rewardedAd;
   bool _isBannerAdLoaded = false;
   bool _isRewardedAdLoaded = false;
+  int _bannerRetryAttempts = 0;
+  static const int _maxRetries = 3;
 
   BannerAd? get bannerAd => _bannerAd;
   bool get isBannerAdLoaded => _isBannerAdLoaded;
   bool get isRewardedAdLoaded => _isRewardedAdLoaded;
 
-  // AdMob Ad Unit IDs - Replace with your actual IDs from AdMob Console
-  static const String _bannerAdUnitId = 'YOUR_BANNER_AD_UNIT_ID'; // Replace with your Banner Ad Unit ID
-  static const String _rewardedAdUnitId = 'YOUR_REWARDED_AD_UNIT_ID'; // Replace with your Rewarded Ad Unit ID
+  // Real ad unit IDs - Using your AdMob account
+  static const String _bannerAdUnitId = 'ca-app-pub-9248463260132832/2467283216'; // Real Banner Ad
+  static const String _rewardedAdUnitId = 'ca-app-pub-9248463260132832/1098361225'; // Real Rewarded Ad
 
   void loadBannerAd() {
     _bannerAd = BannerAd(
@@ -23,13 +25,33 @@ class AdProvider extends ChangeNotifier {
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (ad) {
+          debugPrint('✅ Banner ad loaded in AdProvider');
           _isBannerAdLoaded = true;
+          _bannerRetryAttempts = 0; // Reset on success
           notifyListeners();
         },
         onAdFailedToLoad: (ad, error) {
+          debugPrint('❌ Banner ad failed to load: $error');
           ad.dispose();
           _isBannerAdLoaded = false;
-          notifyListeners();
+          
+          // Only notify once, not on every retry
+          if (_bannerRetryAttempts == 0) {
+            notifyListeners();
+          }
+          
+          // Limited retries with exponential backoff
+          if (_bannerRetryAttempts < _maxRetries) {
+            _bannerRetryAttempts++;
+            final delay = Duration(seconds: 30 * _bannerRetryAttempts);
+            debugPrint('⏳ Retrying banner ad in ${delay.inSeconds}s (attempt $_bannerRetryAttempts/$_maxRetries)');
+            
+            Future.delayed(delay, () {
+              loadBannerAd();
+            });
+          } else {
+            debugPrint('⛔ Max retries reached for banner ad. Giving up.');
+          }
         },
       ),
     );
