@@ -12,11 +12,23 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await MobileAds.instance.initialize();
   
-  // Initialize secure PDF cache
-  await SecurePdfCache().initialize();
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    debugPrint('Firebase initialization error: $e');
+  }
+  
+  try {
+    await MobileAds.instance.initialize();
+  } catch (e) {
+    debugPrint('AdMob initialization error: $e');
+  }
+  
+  // Initialize secure PDF cache (non-blocking)
+  SecurePdfCache().initialize().catchError((e) {
+    debugPrint('PDF cache initialization error: $e');
+  });
   
   runApp(const MyApp());
 }

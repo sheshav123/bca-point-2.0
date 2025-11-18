@@ -33,38 +33,57 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Future<void> _checkAuthAndNavigate() async {
     if (_hasNavigated) return;
     
-    // Wait for animation and Firebase to initialize
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted || _hasNavigated) return;
+    try {
+      debugPrint('Splash: Starting auth check...');
+      
+      // Wait for animation and Firebase to initialize
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted || _hasNavigated) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final currentUser = FirebaseAuth.instance.currentUser;
-    
-    if (currentUser != null) {
-      // User is signed in, wait for user data to load
-      int attempts = 0;
-      while (authProvider.userModel == null && attempts < 15) {
-        await Future.delayed(const Duration(milliseconds: 300));
-        attempts++;
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final currentUser = FirebaseAuth.instance.currentUser;
+      
+      debugPrint('Splash: Current user: ${currentUser?.uid ?? "null"}');
+      
+      if (currentUser != null) {
+        // User is signed in, wait for user data to load
+        debugPrint('Splash: User signed in, loading user data...');
+        int attempts = 0;
+        while (authProvider.userModel == null && attempts < 10) {
+          await Future.delayed(const Duration(milliseconds: 300));
+          attempts++;
+          debugPrint('Splash: Waiting for user data... attempt $attempts');
+          if (!mounted || _hasNavigated) return;
+        }
+        
         if (!mounted || _hasNavigated) return;
-      }
-      
-      if (!mounted || _hasNavigated) return;
-      
-      _hasNavigated = true;
-      if (authProvider.userModel != null) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
+        
+        _hasNavigated = true;
+        if (authProvider.userModel != null) {
+          debugPrint('Splash: Navigating to Home');
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+          );
+        } else {
+          debugPrint('Splash: Navigating to Profile Setup');
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
+          );
+        }
       } else {
+        // No user signed in
+        debugPrint('Splash: No user, navigating to Login');
+        if (!mounted || _hasNavigated) return;
+        _hasNavigated = true;
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
         );
       }
-    } else {
-      // No user signed in
+    } catch (e) {
+      debugPrint('Splash: Error during navigation: $e');
       if (!mounted || _hasNavigated) return;
       _hasNavigated = true;
+      // Fallback to login screen on error
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
