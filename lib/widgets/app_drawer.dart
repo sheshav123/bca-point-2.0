@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../providers/purchase_provider.dart';
 import '../screens/login_screen.dart';
 import '../screens/cache_management_screen.dart';
+import '../screens/debug_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -107,6 +108,18 @@ class AppDrawer extends StatelessWidget {
                   Navigator.pop(context);
                   _showPurchaseDialog(context, authProvider, purchaseProvider);
                 },
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.bug_report, color: Colors.orange),
+            title: const Text('Debug Database'),
+            subtitle: const Text('View Firestore data'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DebugScreen()),
               );
             },
           ),
