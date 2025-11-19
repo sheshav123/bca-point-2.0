@@ -86,13 +86,7 @@ class LoginScreen extends StatelessWidget {
                                   }
                                 }
                               },
-                              icon: Image.asset(
-                                'assets/images/google_logo.png',
-                                height: 24,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Icon(Icons.login, color: Colors.black87);
-                                },
-                              ),
+                              icon: const Icon(Icons.login, color: Colors.black87),
                               label: const Text(
                                 'Sign in with Google',
                                 style: TextStyle(
