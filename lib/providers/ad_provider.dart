@@ -17,20 +17,49 @@ class AdProvider extends ChangeNotifier {
   bool get isRewardedAdLoaded => _isRewardedAdLoaded;
 
   // Real ad unit IDs - Using your AdMob account
-  static const String _bannerAdUnitId = 'ca-app-pub-9248463260132832/2467283216'; // Real Banner Ad
+  // Multiple banner ad unit IDs for rotation (maximizes revenue and fill rate)
+  static final List<String> _bannerAdUnitIds = [
+    'ca-app-pub-9248463260132832/2467283216', // Real Banner 1
+    'ca-app-pub-9248463260132832/7831290535', // Real Banner 2
+    'ca-app-pub-9248463260132832/1206172435', // Real Banner 3
+    'ca-app-pub-9248463260132832/3606240537', // Real Banner 4
+    'ca-app-pub-9248463260132832/7482616808', // Real Banner 5
+  ];
+  int _currentBannerIndex = 0;
+  
   static const String _rewardedAdUnitId = 'ca-app-pub-9248463260132832/1098361225'; // Real Rewarded Ad
+  
+  // Get next banner ad unit ID (rotates through all IDs)
+  String _getNextBannerAdUnitId() {
+    final id = _bannerAdUnitIds[_currentBannerIndex % _bannerAdUnitIds.length];
+    _currentBannerIndex++;
+    debugPrint('🎯 Using banner ad unit: ${id.substring(id.length - 10)} (${_currentBannerIndex % _bannerAdUnitIds.length + 1}/${_bannerAdUnitIds.length})');
+    return id;
+  }
 
   AdProvider() {
-    // Preload rewarded ad on initialization
+    // Preload both banner and rewarded ads on initialization
+    loadBannerAd();
     loadRewardedAd();
+  }
+  
+  // Force reload banner ad (useful when navigating between screens)
+  void reloadBannerAd() {
+    debugPrint('🔄 Force reloading banner ad...');
+    _bannerRetryAttempts = 0; // Reset retry counter
+    loadBannerAd();
   }
 
   void loadBannerAd() {
+    debugPrint('🎯 Loading banner ad...');
+    
     // Dispose existing ad if any
     _bannerAd?.dispose();
+    _isBannerAdLoaded = false;
+    notifyListeners();
     
     _bannerAd = BannerAd(
-      adUnitId: _bannerAdUnitId,
+      adUnitId: _getNextBannerAdUnitId(),
       size: AdSize.banner,
       request: const AdRequest(),
       listener: BannerAdListener(
@@ -42,14 +71,15 @@ class AdProvider extends ChangeNotifier {
         },
         onAdFailedToLoad: (ad, error) {
           debugPrint('❌ Banner ad failed to load: $error');
+          debugPrint('❌ Error code: ${error.code}, message: ${error.message}');
           ad.dispose();
           _isBannerAdLoaded = false;
           notifyListeners();
           
-          // Retry with shorter delays
+          // Retry with exponential backoff
           if (_bannerRetryAttempts < _maxBannerRetries) {
             _bannerRetryAttempts++;
-            final delay = Duration(seconds: 5 + (_bannerRetryAttempts * 2)); // 5s, 7s, 9s, etc.
+            final delay = Duration(seconds: 3 * _bannerRetryAttempts); // 3s, 6s, 9s, etc.
             debugPrint('⏳ Retrying banner ad in ${delay.inSeconds}s (attempt $_bannerRetryAttempts/$_maxBannerRetries)');
             
             Future.delayed(delay, () {
@@ -60,8 +90,9 @@ class AdProvider extends ChangeNotifier {
           } else {
             debugPrint('⛔ Max retries reached for banner ad');
             // Reset counter after some time to allow future attempts
-            Future.delayed(const Duration(minutes: 2), () {
+            Future.delayed(const Duration(minutes: 1), () {
               _bannerRetryAttempts = 0;
+              debugPrint('🔄 Banner ad retry counter reset');
             });
           }
         },
@@ -70,6 +101,9 @@ class AdProvider extends ChangeNotifier {
         },
         onAdClosed: (ad) {
           debugPrint('📱 Banner ad closed');
+        },
+        onAdImpression: (ad) {
+          debugPrint('👁️ Banner ad impression recorded');
         },
       ),
     );

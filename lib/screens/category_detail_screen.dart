@@ -20,7 +20,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AdProvider>(context, listen: false).loadBannerAd();
+      final adProvider = Provider.of<AdProvider>(context, listen: false);
+      // Force reload to ensure fresh ad
+      adProvider.reloadBannerAd();
     });
   }
 

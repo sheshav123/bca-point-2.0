@@ -23,6 +23,8 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
   }
 
   void _loadBannerAd() {
+    debugPrint('🎯 BannerAdWidget: Loading banner ad...');
+    
     _bannerAd = _adService.createBannerAd(
       onAdLoaded: (ad) {
         if (mounted) {
@@ -31,23 +33,32 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
             _retryAttempts = 0; // Reset on success
           });
         }
-        debugPrint('✅ Banner ad loaded');
+        debugPrint('✅ BannerAdWidget: Banner ad loaded successfully');
       },
       onAdFailedToLoad: (ad, error) {
-        debugPrint('❌ Banner ad failed to load: $error');
+        debugPrint('❌ BannerAdWidget: Banner ad failed to load: $error');
+        debugPrint('❌ Error code: ${error.code}, message: ${error.message}');
         ad.dispose();
         
-        // Only retry a limited number of times
+        // Retry with shorter delays
         if (_retryAttempts < _maxRetries) {
           _retryAttempts++;
-          final delay = Duration(seconds: 30 * _retryAttempts); // Exponential backoff
-          debugPrint('⏳ Retrying banner ad in ${delay.inSeconds}s (attempt $_retryAttempts/$_maxRetries)');
+          final delay = Duration(seconds: 5 * _retryAttempts); // 5s, 10s, 15s
+          debugPrint('⏳ BannerAdWidget: Retrying banner ad in ${delay.inSeconds}s (attempt $_retryAttempts/$_maxRetries)');
           
           Future.delayed(delay, () {
             if (mounted) _loadBannerAd();
           });
         } else {
-          debugPrint('⛔ Max retries reached for banner ad. Giving up.');
+          debugPrint('⛔ BannerAdWidget: Max retries reached for banner ad');
+          // Reset after 1 minute to try again
+          Future.delayed(const Duration(minutes: 1), () {
+            if (mounted) {
+              _retryAttempts = 0;
+              _loadBannerAd();
+              debugPrint('🔄 BannerAdWidget: Retry counter reset, attempting to load again');
+            }
+          });
         }
       },
     );

@@ -30,8 +30,12 @@ class _HomeScreenState extends State<HomeScreen> {
       
       debugPrint('🔔 Loading notifications for isPremium: $isPremium');
       Provider.of<CategoryProvider>(context, listen: false).loadCategories();
-      Provider.of<AdProvider>(context, listen: false).loadBannerAd();
-      Provider.of<AdProvider>(context, listen: false).loadRewardedAd();
+      
+      // Force reload banner ad for fresh ad on home screen
+      final adProvider = Provider.of<AdProvider>(context, listen: false);
+      adProvider.reloadBannerAd();
+      adProvider.loadRewardedAd();
+      
       Provider.of<NotificationProvider>(context, listen: false).loadNotifications(isPremium);
     });
   }

@@ -12,6 +12,8 @@ class AdService {
     'ca-app-pub-9248463260132832/2467283216', // Real Banner 1
     'ca-app-pub-9248463260132832/7831290535', // Real Banner 2
     'ca-app-pub-9248463260132832/1206172435', // Real Banner 3
+    'ca-app-pub-9248463260132832/3606240537', // Real Banner 4
+    'ca-app-pub-9248463260132832/7482616808', // Real Banner 5
   ];
 
   static final List<String> _iosBannerIds = [
