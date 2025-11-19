@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'profile_setup_screen.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -60,11 +61,29 @@ class LoginScreen extends StatelessWidget {
                               onPressed: () async {
                                 final success = await authProvider.signInWithGoogle();
                                 if (success && context.mounted) {
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (_) => const ProfileSetupScreen(),
-                                    ),
-                                  );
+                                  // Wait a bit for user data to load
+                                  await Future.delayed(const Duration(milliseconds: 500));
+                                  
+                                  if (!context.mounted) return;
+                                  
+                                  // Check if user profile exists
+                                  if (authProvider.userModel != null) {
+                                    // Existing user - go to home screen
+                                    debugPrint('Login: Existing user detected, navigating to Home');
+                                    Navigator.of(context).pushReplacement(
+                                      MaterialPageRoute(
+                                        builder: (_) => const HomeScreen(),
+                                      ),
+                                    );
+                                  } else {
+                                    // New user - go to profile setup
+                                    debugPrint('Login: New user detected, navigating to Profile Setup');
+                                    Navigator.of(context).pushReplacement(
+                                      MaterialPageRoute(
+                                        builder: (_) => const ProfileSetupScreen(),
+                                      ),
+                                    );
+                                  }
                                 }
                               },
                               icon: Image.asset(

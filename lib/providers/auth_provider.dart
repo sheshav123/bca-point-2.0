@@ -19,11 +19,29 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _user != null;
 
   AuthProvider() {
+    // Check if there's already a signed-in user on initialization
+    _user = _auth.currentUser;
+    if (_user != null) {
+      debugPrint('AuthProvider: Constructor - User already signed in: ${_user!.uid}');
+      _loadUserData().then((_) {
+        debugPrint('AuthProvider: Constructor - Initial load complete');
+        notifyListeners();
+      });
+    }
+    
+    // Listen for auth state changes
     _auth.authStateChanges().listen((User? user) async {
+      debugPrint('AuthProvider: Auth state changed - User: ${user?.uid ?? "null"}');
       _user = user;
       if (user != null) {
+        debugPrint('AuthProvider: User signed in, loading data for ${user.uid}');
         await _loadUserData();
+        debugPrint('AuthProvider: User data loaded, userModel is ${_userModel != null ? "not null" : "null"}');
+        if (_userModel != null) {
+          debugPrint('AuthProvider: ✅ User profile loaded: ${_userModel!.name}');
+        }
       } else {
+        debugPrint('AuthProvider: User signed out, clearing data');
         _userModel = null;
       }
       notifyListeners();
@@ -31,14 +49,117 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> _loadUserData() async {
-    if (_user == null) return;
+    if (_user == null) {
+      debugPrint('AuthProvider: _loadUserData called but no user logged in');
+      return;
+    }
+    
     try {
-      final doc = await _firestore.collection('users').doc(_user!.uid).get();
-      if (doc.exists) {
-        _userModel = UserModel.fromMap(doc.data()!);
+      debugPrint('AuthProvider: Fetching user data from Firestore for ${_user!.uid}');
+      
+      // Add retry logic for network issues
+      int retries = 0;
+      const maxRetries = 3;
+      
+      while (retries < maxRetries) {
+        try {
+          final doc = await _firestore
+              .collection('users')
+              .doc(_user!.uid)
+              .get();
+          
+          if (doc.exists) {
+            final data = doc.data();
+            debugPrint('AuthProvider: User document found in Firestore');
+            debugPrint('AuthProvider: Document data: $data');
+            
+            if (data != null) {
+              _userModel = UserModel.fromMap(data);
+              debugPrint('AuthProvider: ✅ UserModel created successfully');
+              debugPrint('AuthProvider: - Name: ${_userModel?.name}');
+              debugPrint('AuthProvider: - College: ${_userModel?.collegeName}');
+              debugPrint('AuthProvider: - Semester: ${_userModel?.semester}');
+              debugPrint('AuthProvider: - AdFree: ${_userModel?.adFree}');
+              return; // Success, exit the retry loop
+            } else {
+              debugPrint('AuthProvider: ⚠️ Document exists but data is null');
+              _userModel = null;
+              return;
+            }
+          } else {
+            debugPrint('AuthProvider: ❌ User document NOT found in Firestore');
+            debugPrint('AuthProvider: This is a new user who needs profile setup');
+            _userModel = null;
+            return; // Document doesn't exist, no need to retry
+          }
+        } catch (e) {
+          retries++;
+          if (retries >= maxRetries) {
+            throw e; // Throw on last retry
+          }
+          debugPrint('AuthProvider: ⚠️ Retry $retries/$maxRetries after error: $e');
+          await Future.delayed(Duration(milliseconds: 500 * retries));
+        }
       }
-    } catch (e) {
-      debugPrint('Error loading user data: $e');
+    } catch (e, stackTrace) {
+      debugPrint('AuthProvider: ❌ Error loading user data after retries: $e');
+      debugPrint('Stack trace: $stackTrace');
+      _userModel = null;
+    }
+  }
+
+  // Public method to refresh user data
+  Future<void> refreshUserData() async {
+    await _loadUserData();
+    notifyListeners();
+  }
+
+  // Update user profile
+  Future<bool> updateProfile({
+    required String name,
+    required String collegeName,
+    required String semester,
+    String? university,
+    String? phone,
+  }) async {
+    if (_user == null) {
+      debugPrint('❌ updateProfile: No user logged in');
+      return false;
+    }
+
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      debugPrint('📝 Updating profile for user: ${_user!.uid}');
+      
+      final updateData = {
+        'name': name,
+        'collegeName': collegeName,
+        'semester': semester,
+        'university': university,
+        'phone': phone,
+      };
+
+      debugPrint('📝 Updating Firestore with: $updateData');
+      
+      await _firestore.collection('users').doc(_user!.uid).update(updateData);
+      
+      debugPrint('✅ Profile updated in Firestore successfully');
+      
+      // Reload user data to reflect changes
+      await _loadUserData();
+      
+      _isLoading = false;
+      notifyListeners();
+      
+      return true;
+    } catch (e, stackTrace) {
+      _isLoading = false;
+      notifyListeners();
+      debugPrint('❌ Error updating profile: $e');
+      debugPrint('Stack trace: $stackTrace');
+      return false;
     }
   }
   
@@ -154,14 +275,35 @@ class AuthProvider extends ChangeNotifier {
     required String semester,
     String? university,
     String? phone,
-    String? email,
   }) async {
-    if (_user == null) return false;
+    if (_user == null) {
+      debugPrint('❌ completeProfile: No user logged in');
+      return false;
+    }
 
     try {
       _isLoading = true;
       notifyListeners();
 
+      debugPrint('📝 Completing profile for user: ${_user!.uid}');
+      
+      // First, check if user already exists in Firestore
+      final existingDoc = await _firestore.collection('users').doc(_user!.uid).get();
+      
+      if (existingDoc.exists) {
+        debugPrint('⚠️ User already exists in Firestore! This should not happen.');
+        debugPrint('⚠️ Existing data: ${existingDoc.data()}');
+        // Load the existing data instead of overwriting
+        _userModel = UserModel.fromMap(existingDoc.data()!);
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+      
+      // User doesn't exist, create new profile
+      debugPrint('📝 Creating new profile for user: ${_user!.uid}');
+      
+      final now = DateTime.now();
       final userData = {
         'uid': _user!.uid,
         'email': _user!.email!,
@@ -169,7 +311,8 @@ class AuthProvider extends ChangeNotifier {
         'collegeName': collegeName,
         'semester': semester,
         'photoUrl': _user!.photoURL,
-        'createdAt': DateTime.now().toIso8601String(),
+        'createdAt': now.toIso8601String(),
+        'adFree': false, // Default to non-premium
       };
 
       // Add optional fields if provided
@@ -179,12 +322,15 @@ class AuthProvider extends ChangeNotifier {
       if (phone != null && phone.isNotEmpty) {
         userData['phone'] = phone;
       }
-      if (email != null && email.isNotEmpty) {
-        userData['contactEmail'] = email;
-      }
 
+      debugPrint('📝 Writing to Firestore: $userData');
+      
+      // Use set (not merge) for new users to ensure clean data
       await _firestore.collection('users').doc(_user!.uid).set(userData);
       
+      debugPrint('✅ Profile saved to Firestore successfully');
+      
+      // Create UserModel with the saved data
       final userModel = UserModel(
         uid: _user!.uid,
         email: _user!.email!,
@@ -192,17 +338,33 @@ class AuthProvider extends ChangeNotifier {
         collegeName: collegeName,
         semester: semester,
         photoUrl: _user!.photoURL,
-        createdAt: DateTime.now(),
+        createdAt: now,
+        adFree: false,
+        university: university,
+        phone: phone,
       );
       
       _userModel = userModel;
+      debugPrint('✅ UserModel updated in memory: ${_userModel?.name}');
+      
       _isLoading = false;
       notifyListeners();
+      
+      // Verify the data was saved by reading it back
+      final verifyDoc = await _firestore.collection('users').doc(_user!.uid).get();
+      if (verifyDoc.exists) {
+        debugPrint('✅ Verification: Profile exists in Firestore');
+        debugPrint('✅ Verification data: ${verifyDoc.data()}');
+      } else {
+        debugPrint('❌ Verification: Profile NOT found in Firestore!');
+      }
+      
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
       _isLoading = false;
       notifyListeners();
-      debugPrint('Error completing profile: $e');
+      debugPrint('❌ Error completing profile: $e');
+      debugPrint('Stack trace: $stackTrace');
       return false;
     }
   }

@@ -22,7 +22,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_controller);
@@ -36,8 +36,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     try {
       debugPrint('Splash: Starting auth check...');
       
-      // Wait for animation and Firebase to initialize
-      await Future.delayed(const Duration(seconds: 2));
+      // Minimal delay for animation
+      await Future.delayed(const Duration(milliseconds: 1000));
       if (!mounted || _hasNavigated) return;
 
       final authProvider = Provider.of<auth.AuthProvider>(context, listen: false);
@@ -47,32 +47,41 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       
       if (currentUser != null) {
         // User is signed in, wait for user data to load
-        debugPrint('Splash: User signed in, loading user data...');
+        debugPrint('Splash: User signed in, waiting for user data to load...');
         int attempts = 0;
-        while (authProvider.userModel == null && attempts < 10) {
+        const maxAttempts = 15; // Increased to give more time for Firestore
+        
+        while (attempts < maxAttempts) {
+          if (!mounted || _hasNavigated) return;
+          
+          // Check if userModel is loaded
+          if (authProvider.userModel != null) {
+            debugPrint('Splash: User data loaded successfully');
+            break;
+          }
+          
           await Future.delayed(const Duration(milliseconds: 300));
           attempts++;
-          debugPrint('Splash: Waiting for user data... attempt $attempts');
-          if (!mounted || _hasNavigated) return;
+          debugPrint('Splash: Waiting for user data... attempt $attempts/$maxAttempts');
         }
         
         if (!mounted || _hasNavigated) return;
         
         _hasNavigated = true;
         if (authProvider.userModel != null) {
-          debugPrint('Splash: Navigating to Home');
+          debugPrint('Splash: User profile exists, navigating to Home');
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const HomeScreen()),
           );
         } else {
-          debugPrint('Splash: Navigating to Profile Setup');
+          debugPrint('Splash: No user profile found, navigating to Profile Setup');
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
           );
         }
       } else {
         // No user signed in
-        debugPrint('Splash: No user, navigating to Login');
+        debugPrint('Splash: No user signed in, navigating to Login');
         if (!mounted || _hasNavigated) return;
         _hasNavigated = true;
         Navigator.of(context).pushReplacement(

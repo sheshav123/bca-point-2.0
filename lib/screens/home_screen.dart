@@ -5,9 +5,12 @@ import '../providers/auth_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/ad_provider.dart';
 import '../providers/purchase_provider.dart';
+import '../providers/notification_provider.dart';
 import '../widgets/app_drawer.dart';
 import 'category_detail_screen.dart';
 import 'debug_screen.dart';
+import 'notifications_screen.dart';
+import 'profile_edit_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,9 +24,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final purchaseProvider = Provider.of<PurchaseProvider>(context, listen: false);
+      final isPremium = authProvider.userModel?.adFree == true || purchaseProvider.isPurchased;
+      
+      debugPrint('🔔 Loading notifications for isPremium: $isPremium');
       Provider.of<CategoryProvider>(context, listen: false).loadCategories();
       Provider.of<AdProvider>(context, listen: false).loadBannerAd();
       Provider.of<AdProvider>(context, listen: false).loadRewardedAd();
+      Provider.of<NotificationProvider>(context, listen: false).loadNotifications(isPremium);
     });
   }
 
@@ -37,50 +46,62 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('BCA Point 2.0'),
         actions: [
-          Consumer<PurchaseProvider>(
-            builder: (context, purchaseProvider, _) {
-              if (authProvider.userModel?.adFree == true || purchaseProvider.isPurchased) {
-                return Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Colors.amber, Colors.orange],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
+          Consumer<NotificationProvider>(
+            builder: (context, notificationProvider, _) {
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                      );
+                    },
+                    tooltip: 'Notifications',
                   ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.workspace_premium, size: 18, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        'PREMIUM',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                  if (notificationProvider.unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          notificationProvider.unreadCount > 9
+                              ? '9+'
+                              : notificationProvider.unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                      SizedBox(width: 4),
-                      Icon(Icons.auto_awesome, size: 14, color: Colors.white),
-                    ],
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.bug_report),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const DebugScreen()),
+                    ),
+                ],
               );
             },
-            tooltip: 'Debug Database',
           ),
+          // Debug button - uncomment for testing
+          // IconButton(
+          //   icon: const Icon(Icons.bug_report),
+          //   onPressed: () {
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(builder: (_) => const DebugScreen()),
+          //     );
+          //   },
+          //   tooltip: 'Debug Database',
+          // ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => categoryProvider.loadCategories(),
@@ -102,32 +123,86 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    'Welcome back,',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 14,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome back,',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Consumer<PurchaseProvider>(
+                          builder: (context, purchaseProvider, _) {
+                            final isPremium = authProvider.userModel?.adFree == true || purchaseProvider.isPurchased;
+                            return Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    authProvider.userModel!.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                if (isPremium) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Colors.amber, Colors.orange],
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.workspace_premium, size: 14, color: Colors.white),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'PREMIUM',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${authProvider.userModel!.collegeName} • Semester ${authProvider.userModel!.semester}',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    authProvider.userModel!.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${authProvider.userModel!.collegeName} • Semester ${authProvider.userModel!.semester}',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 12,
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.white),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ProfileEditScreen()),
+                      );
+                    },
+                    tooltip: 'Edit Profile',
                   ),
                 ],
               ),
@@ -165,6 +240,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           final hasPremium = authProvider.userModel?.adFree == true ||
                               Provider.of<PurchaseProvider>(context, listen: false).isPurchased;
                           final isLocked = isPremium && !hasPremium;
+                          
+                          debugPrint('Category: ${category.title}, isPremium: $isPremium, hasPremium: $hasPremium, isLocked: $isLocked');
                           
                           return Card(
                             elevation: 2,

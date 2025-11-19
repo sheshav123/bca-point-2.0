@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>List All Users - BCA Point</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .user-card {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .user-card.premium {
+            border-left-color: #ffc107;
+            background: #fff9e6;
+        }
+        .user-card h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .user-card p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .premium-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #ffc107, #ff9800);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .make-premium-btn {
+            padding: 6px 12px;
+            background: #ffc107;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .make-premium-btn:hover {
+            background: #ff9800;
+        }
+        #loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>👥 All Users</h1>
+        <button onclick="loadUsers()">🔄 Refresh Users</button>
+        <div id="loading">Loading users...</div>
+        <div id="usersList"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, getDocs, updateDoc, doc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDbGQvEoVsBqLYiiYsy_5JD3Xz6TUKIq0c",
+            authDomain: "bca-point-2.firebaseapp.com",
+            projectId: "bca-point-2",
+            storageBucket: "bca-point-2.firebasestorage.app",
+            messagingSenderId: "172385715450",
+            appId: "1:172385715450:web:d87c9818b5990e82b0b543",
+            measurementId: "G-HNGS5B7N9Y"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.loadUsers = async function() {
+            const loading = document.getElementById('loading');
+            const usersList = document.getElementById('usersList');
+            
+            loading.style.display = 'block';
+            usersList.innerHTML = '';
+            
+            try {
+                const snapshot = await getDocs(collection(db, 'users'));
+                
+                loading.style.display = 'none';
+                
+                if (snapshot.empty) {
+                    usersList.innerHTML = '<p style="text-align: center; color: #999;">No users found</p>';
+                    return;
+                }
+                
+                console.log(`Found ${snapshot.size} users`);
+                
+                snapshot.forEach((docSnap) => {
+                    const userData = docSnap.data();
+                    const userId = docSnap.id;
+                    const isPremium = userData.adFree === true;
+                    
+                    const userCard = document.createElement('div');
+                    userCard.className = `user-card ${isPremium ? 'premium' : ''}`;
+                    userCard.innerHTML = `
+                        <h3>
+                            ${isPremium ? '👑 ' : ''}${userData.name || 'No Name'}
+                            ${isPremium ? '<span class="premium-badge">PREMIUM</span>' : ''}
+                        </h3>
+                        <p><strong>Email:</strong> ${userData.email || 'N/A'}</p>
+                        <p><strong>College:</strong> ${userData.collegeName || 'N/A'}</p>
+                        <p><strong>Semester:</strong> ${userData.semester || 'N/A'}</p>
+                        <p><strong>User ID:</strong> <code style="font-size: 11px;">${userId}</code></p>
+                        ${!isPremium ? `<button class="make-premium-btn" onclick="makePremium('${userId}', '${userData.name || 'User'}')">👑 Make Premium</button>` : ''}
+                    `;
+                    usersList.appendChild(userCard);
+                });
+                
+            } catch (error) {
+                loading.style.display = 'none';
+                usersList.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                console.error('Error loading users:', error);
+            }
+        };
+
+        window.makePremium = async function(userId, userName) {
+            if (!confirm(`Make ${userName} premium?`)) {
+                return;
+            }
+            
+            try {
+                await updateDoc(doc(db, 'users', userId), {
+                    adFree: true,
+                    premiumSince: new Date().toISOString()
+                });
+                
+                alert(`✅ ${userName} is now PREMIUM! 👑`);
+                loadUsers(); // Refresh the list
+                
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+                console.error('Error making user premium:', error);
+            }
+        };
+
+        // Auto-load on page load
+        window.addEventListener('load', () => {
+            loadUsers();
+        });
+    </script>
+</body>
+</html>

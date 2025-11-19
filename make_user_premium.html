@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Make User Premium - BCA Point</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        .user-info {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        .user-info h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        .user-info p {
+            margin: 8px 0;
+        }
+        .premium-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #ffc107, #ff9800);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>👑 Make User Premium</h1>
+        
+        <label style="font-weight: bold; display: block; margin-bottom: 5px;">User Email:</label>
+        <input type="email" id="userEmail" value="killerronak007@gmail.com" placeholder="Enter user email">
+        
+        <button id="searchBtn" onclick="findUser()">🔍 Find User</button>
+        
+        <div id="userInfo" class="user-info" style="display: none;"></div>
+        
+        <button id="premiumBtn" onclick="makePremium()" style="display: none; margin-top: 15px; background: #ffc107;">
+            👑 Make Premium
+        </button>
+        
+        <div id="status" class="status"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, query, where, getDocs, updateDoc, doc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDbGQvEoVsBqLYiiYsy_5JD3Xz6TUKIq0c",
+            authDomain: "bca-point-2.firebaseapp.com",
+            projectId: "bca-point-2",
+            storageBucket: "bca-point-2.firebasestorage.app",
+            messagingSenderId: "172385715450",
+            appId: "1:172385715450:web:d87c9818b5990e82b0b543",
+            measurementId: "G-HNGS5B7N9Y"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let currentUserId = null;
+
+        window.findUser = async function() {
+            const email = document.getElementById('userEmail').value.trim();
+            const statusDiv = document.getElementById('status');
+            const userInfoDiv = document.getElementById('userInfo');
+            const premiumBtn = document.getElementById('premiumBtn');
+            const searchBtn = document.getElementById('searchBtn');
+            
+            if (!email) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Please enter an email address';
+                return;
+            }
+            
+            searchBtn.disabled = true;
+            searchBtn.textContent = 'Searching...';
+            statusDiv.style.display = 'none';
+            userInfoDiv.style.display = 'none';
+            premiumBtn.style.display = 'none';
+            
+            try {
+                const q = query(collection(db, 'users'), where('email', '==', email));
+                const snapshot = await getDocs(q);
+                
+                if (snapshot.empty) {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = '❌ User not found with email: ' + email;
+                    searchBtn.disabled = false;
+                    searchBtn.textContent = '🔍 Find User';
+                    return;
+                }
+                
+                const userDoc = snapshot.docs[0];
+                const userData = userDoc.data();
+                currentUserId = userDoc.id;
+                
+                userInfoDiv.innerHTML = `
+                    <h3>User Found!</h3>
+                    <p><strong>Name:</strong> ${userData.name || 'N/A'}</p>
+                    <p><strong>Email:</strong> ${userData.email}</p>
+                    <p><strong>College:</strong> ${userData.collegeName || 'N/A'}</p>
+                    <p><strong>Semester:</strong> ${userData.semester || 'N/A'}</p>
+                    <p><strong>Premium Status:</strong> ${userData.adFree ? '<span class="premium-badge">👑 PREMIUM</span>' : '❌ Free User'}</p>
+                `;
+                userInfoDiv.style.display = 'block';
+                
+                if (!userData.adFree) {
+                    premiumBtn.style.display = 'block';
+                } else {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✅ User is already premium!';
+                }
+                
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Error: ' + error.message;
+            } finally {
+                searchBtn.disabled = false;
+                searchBtn.textContent = '🔍 Find User';
+            }
+        };
+
+        window.makePremium = async function() {
+            if (!currentUserId) {
+                alert('Please find a user first');
+                return;
+            }
+            
+            const statusDiv = document.getElementById('status');
+            const premiumBtn = document.getElementById('premiumBtn');
+            
+            if (!confirm('Make this user premium?')) {
+                return;
+            }
+            
+            premiumBtn.disabled = true;
+            premiumBtn.textContent = 'Processing...';
+            
+            try {
+                await updateDoc(doc(db, 'users', currentUserId), {
+                    adFree: true,
+                    premiumSince: new Date().toISOString()
+                });
+                
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ User is now PREMIUM! 👑';
+                premiumBtn.style.display = 'none';
+                
+                // Refresh user info
+                findUser();
+                
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Error: ' + error.message;
+                premiumBtn.disabled = false;
+                premiumBtn.textContent = '👑 Make Premium';
+            }
+        };
+
+        // Auto-search on page load
+        window.addEventListener('load', () => {
+            findUser();
+        });
+    </script>
+</body>
+</html>

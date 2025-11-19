@@ -14,11 +14,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
   
   String _selectedUniversity = 'Vinoba Bhave University Hazaribagh';
   String _selectedCollege = 'Annada College Hazaribagh';
   String _selectedSemester = '1';
+  bool _isOtherCollege = false;
+  final _otherCollegeController = TextEditingController();
 
   final List<String> _universities = [
     'Vinoba Bhave University Hazaribagh',
@@ -26,12 +27,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   final List<String> _colleges = [
     'Annada College Hazaribagh',
-    'Columba\'s College Hazaribagh',
+    'St. Columbus College Hazaribagh',
     'Markham College Hazaribagh',
     'Chatra College',
     'Ramgarh College',
     'KB Women\'s College',
     'University Department of Computer Applications VBU',
+    'Other',
   ];
 
   final List<String> _semesters = ['1', '2', '3', '4', '5', '6'];
@@ -40,7 +42,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _emailController.dispose();
+    _otherCollegeController.dispose();
     super.dispose();
   }
 
@@ -108,10 +110,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
+                  isExpanded: true,
                   items: _universities.map((university) {
                     return DropdownMenuItem(
                       value: university,
-                      child: Text(university),
+                      child: Text(
+                        university,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     );
                   }).toList(),
                   onChanged: (value) {
@@ -130,18 +136,46 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
+                  isExpanded: true,
                   items: _colleges.map((college) {
                     return DropdownMenuItem(
                       value: college,
-                      child: Text(college),
+                      child: Text(
+                        college,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     );
                   }).toList(),
                   onChanged: (value) {
                     setState(() {
                       _selectedCollege = value!;
+                      _isOtherCollege = value == 'Other';
+                      if (!_isOtherCollege) {
+                        _otherCollegeController.clear();
+                      }
                     });
                   },
                 ),
+                if (_isOtherCollege) ...[
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _otherCollegeController,
+                    decoration: InputDecoration(
+                      labelText: 'Enter Your College Name',
+                      prefixIcon: const Icon(Icons.edit),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      hintText: 'Type your college name',
+                    ),
+                    validator: (value) {
+                      if (_isOtherCollege && (value == null || value.trim().isEmpty)) {
+                        return 'Please enter your college name';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
                 const SizedBox(height: 20),
                 DropdownButtonFormField<String>(
                   value: _selectedSemester,
@@ -170,25 +204,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   decoration: InputDecoration(
                     labelText: 'Phone Number (Optional)',
                     prefixIcon: const Icon(Icons.phone),
+                    prefixText: '+91 ',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    hintText: '+91 XXXXX XXXXX',
+                    hintText: 'XXXXX XXXXX',
                   ),
                   keyboardType: TextInputType.phone,
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    labelText: 'Email (Optional)',
-                    prefixIcon: const Icon(Icons.email),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    hintText: 'your.email@example.com',
-                  ),
-                  keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 40),
                 Consumer<AuthProvider>(
@@ -198,17 +220,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           ? null
                           : () async {
                               if (_formKey.currentState!.validate()) {
+                                final collegeName = _isOtherCollege 
+                                    ? _otherCollegeController.text.trim()
+                                    : _selectedCollege;
+                                    
+                                final phoneNumber = _phoneController.text.trim().isEmpty 
+                                    ? null 
+                                    : '+91${_phoneController.text.trim()}';
+                                    
                                 final success = await authProvider.completeProfile(
                                   name: _nameController.text.trim(),
-                                  collegeName: _selectedCollege,
+                                  collegeName: collegeName,
                                   semester: _selectedSemester,
                                   university: _selectedUniversity,
-                                  phone: _phoneController.text.trim().isEmpty 
-                                      ? null 
-                                      : _phoneController.text.trim(),
-                                  email: _emailController.text.trim().isEmpty 
-                                      ? null 
-                                      : _emailController.text.trim(),
+                                  phone: phoneNumber,
                                 );
                                 if (success && context.mounted) {
                                   Navigator.of(context).pushReplacement(

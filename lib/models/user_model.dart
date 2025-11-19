@@ -7,6 +7,8 @@ class UserModel {
   final String? photoUrl;
   final DateTime createdAt;
   final bool adFree;
+  final String? university;
+  final String? phone;
 
   UserModel({
     required this.uid,
@@ -17,6 +19,8 @@ class UserModel {
     this.photoUrl,
     required this.createdAt,
     this.adFree = false,
+    this.university,
+    this.phone,
   });
 
   Map<String, dynamic> toMap() {
@@ -29,6 +33,8 @@ class UserModel {
       'photoUrl': photoUrl,
       'createdAt': createdAt.toIso8601String(),
       'adFree': adFree,
+      'university': university,
+      'phone': phone,
     };
   }
 
@@ -42,6 +48,8 @@ class UserModel {
       photoUrl: map['photoUrl'],
       createdAt: DateTime.parse(map['createdAt']),
       adFree: map['adFree'] ?? false,
+      university: map['university'],
+      phone: map['phone'],
     );
   }
 }

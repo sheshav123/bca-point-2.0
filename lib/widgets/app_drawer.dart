@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
 import '../providers/purchase_provider.dart';
 import '../screens/login_screen.dart';
 import '../screens/cache_management_screen.dart';
 import '../screens/debug_screen.dart';
+import '../screens/profile_edit_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -15,7 +18,8 @@ class AppDrawer extends StatelessWidget {
     final user = authProvider.userModel;
 
     return Drawer(
-      child: Column(
+      child: ListView(
+        padding: EdgeInsets.zero,
         children: [
           UserAccountsDrawerHeader(
             decoration: BoxDecoration(
@@ -60,12 +64,29 @@ class AppDrawer extends StatelessWidget {
             subtitle: user != null
                 ? Text('${user.collegeName} • Sem ${user.semester}')
                 : null,
+            trailing: IconButton(
+              icon: const Icon(Icons.edit, size: 20),
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileEditScreen()),
+                );
+              },
+              tooltip: 'Edit Profile',
+            ),
             onTap: () {
               Navigator.pop(context);
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
-                  title: const Text('Profile'),
+                  title: const Row(
+                    children: [
+                      Icon(Icons.person),
+                      SizedBox(width: 8),
+                      Text('Profile'),
+                    ],
+                  ),
                   content: user != null
                       ? Column(
                           mainAxisSize: MainAxisSize.min,
@@ -75,6 +96,10 @@ class AppDrawer extends StatelessWidget {
                             _buildProfileRow('Email', user.email),
                             _buildProfileRow('College', user.collegeName),
                             _buildProfileRow('Semester', user.semester),
+                            if (user.university != null)
+                              _buildProfileRow('University', user.university!),
+                            if (user.phone != null)
+                              _buildProfileRow('Phone', user.phone!),
                           ],
                         )
                       : const Text('No profile data available'),
@@ -82,6 +107,17 @@ class AppDrawer extends StatelessWidget {
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Close'),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ProfileEditScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.edit),
+                      label: const Text('Edit'),
                     ),
                   ],
                 ),
@@ -117,18 +153,39 @@ class AppDrawer extends StatelessWidget {
               );
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.bug_report, color: Colors.orange),
-            title: const Text('Debug Database'),
-            subtitle: const Text('View Firestore data'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const DebugScreen()),
-              );
-            },
-          ),
+          // Debug options - uncomment for testing
+          // ListTile(
+          //   leading: const Icon(Icons.refresh, color: Colors.green),
+          //   title: const Text('Refresh Profile'),
+          //   subtitle: const Text('Reload user data from server'),
+          //   onTap: () async {
+          //     Navigator.pop(context);
+          //     ScaffoldMessenger.of(context).showSnackBar(
+          //       const SnackBar(content: Text('Refreshing profile...')),
+          //     );
+          //     await authProvider.refreshUserData();
+          //     if (context.mounted) {
+          //       ScaffoldMessenger.of(context).showSnackBar(
+          //         const SnackBar(
+          //           content: Text('✅ Profile refreshed!'),
+          //           backgroundColor: Colors.green,
+          //         ),
+          //       );
+          //     }
+          //   },
+          // ),
+          // ListTile(
+          //   leading: const Icon(Icons.bug_report, color: Colors.orange),
+          //   title: const Text('Debug Database'),
+          //   subtitle: const Text('View Firestore data'),
+          //   onTap: () {
+          //     Navigator.pop(context);
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(builder: (_) => const DebugScreen()),
+          //     );
+          //   },
+          // ),
           ListTile(
             leading: const Icon(Icons.storage),
             title: const Text('Cache Management'),
@@ -139,6 +196,15 @@ class AppDrawer extends StatelessWidget {
                 context,
                 MaterialPageRoute(builder: (_) => const CacheManagementScreen()),
               );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.support_agent, color: Colors.blue),
+            title: const Text('Support & Feedback'),
+            subtitle: const Text('Request materials • Send feedback'),
+            onTap: () {
+              Navigator.pop(context);
+              _showSupportDialog(context);
             },
           ),
           ListTile(
@@ -157,7 +223,42 @@ class AppDrawer extends StatelessWidget {
               );
             },
           ),
-          const Spacer(),
+          ListTile(
+            leading: const Icon(Icons.star, color: Colors.orange),
+            title: const Text('Rate & Review'),
+            subtitle: const Text('Share your experience on Play Store'),
+            onTap: () async {
+              Navigator.pop(context);
+              final Uri playStoreUri = Uri.parse(
+                'https://play.google.com/store/apps/details?id=com.tech.practice&pcampaignid=web_share',
+              );
+              
+              try {
+                if (await canLaunchUrl(playStoreUri)) {
+                  await launchUrl(
+                    playStoreUri,
+                    mode: LaunchMode.externalApplication,
+                  );
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Could not open Play Store'),
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Error opening Play Store'),
+                    ),
+                  );
+                }
+              }
+            },
+          ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.delete_forever, color: Colors.red),
@@ -244,52 +345,54 @@ class AppDrawer extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.workspace_premium, color: Colors.amber),
-            const SizedBox(width: 8),
-            const Text('Upgrade to Premium'),
+            Icon(Icons.workspace_premium, color: Colors.amber),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Upgrade to Premium',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Unlock all premium features!',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            _buildFeature(Icons.block, 'No rewarded ads'),
-            _buildFeature(Icons.lock_open, 'Access premium categories'),
-            _buildFeature(Icons.flash_on, 'Instant PDF access'),
-            _buildFeature(Icons.auto_awesome, 'Premium badge'),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(8),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Unlock all premium features!',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
-              child: const Row(
-                children: [
-                  Icon(Icons.workspace_premium, color: Colors.amber),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'One-time payment of ₹100',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+              const SizedBox(height: 16),
+              _buildFeature(Icons.block, 'No rewarded ads'),
+              _buildFeature(Icons.lock_open, 'Access premium categories'),
+              _buildFeature(Icons.flash_on, 'Instant PDF access'),
+              _buildFeature(Icons.auto_awesome, 'Premium badge'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.workspace_premium, color: Colors.amber),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'One-time payment of ₹100',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Note: Banner ads will still be shown',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -512,6 +615,132 @@ class AppDrawer extends StatelessWidget {
             ),
             child: const Text('Delete Account'),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showSupportDialog(BuildContext context) {
+    const supportEmail = 'sheshavanand@gmail.com';
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.support_agent, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('Support & Feedback'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'We\'d love to hear from you!',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              const Text('Contact us to:'),
+              const SizedBox(height: 12),
+              _buildSupportOption(Icons.feedback, 'Send feedback or suggestions'),
+              _buildSupportOption(Icons.book, 'Request for more study materials'),
+              _buildSupportOption(Icons.upload_file, 'Share your study materials'),
+              _buildSupportOption(Icons.bug_report, 'Report issues'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.email, color: Colors.blue),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Email us at:',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            supportEmail,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 20),
+                      onPressed: () {
+                        Clipboard.setData(const ClipboardData(text: supportEmail));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('📋 Email copied to clipboard'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      tooltip: 'Copy email',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final Uri emailUri = Uri(
+                scheme: 'mailto',
+                path: supportEmail,
+                query: 'subject=BCA Point 2.0 - Feedback/Support',
+              );
+              
+              if (await canLaunchUrl(emailUri)) {
+                await launchUrl(emailUri);
+              } else {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Could not open email app. Email copied to clipboard.'),
+                    ),
+                  );
+                  Clipboard.setData(const ClipboardData(text: supportEmail));
+                }
+              }
+            },
+            icon: const Icon(Icons.email),
+            label: const Text('Send Email'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSupportOption(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.blue),
+          const SizedBox(width: 12),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
         ],
       ),
     );

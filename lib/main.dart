@@ -7,6 +7,7 @@ import 'providers/auth_provider.dart';
 import 'providers/category_provider.dart';
 import 'providers/ad_provider.dart';
 import 'providers/purchase_provider.dart';
+import 'providers/notification_provider.dart';
 import 'services/secure_pdf_cache.dart';
 import 'firebase_options.dart';
 
@@ -44,6 +45,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => AdProvider()),
         ChangeNotifierProvider(create: (_) => PurchaseProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: MaterialApp(
         title: 'BCA Point 2.0',

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/subcategory_model.dart';
 import '../providers/category_provider.dart';
 import '../providers/ad_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/purchase_provider.dart';
 import 'pdf_viewer_screen.dart';
 
 class SubcategoryDetailScreen extends StatefulWidget {
@@ -176,38 +178,63 @@ class _SubcategoryDetailScreenState extends State<SubcategoryDetailScreen> {
                                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                 onTap: () async {
                                   final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                                  final isAdFree = authProvider.userModel?.adFree ?? false;
+                                  final purchaseProvider = Provider.of<PurchaseProvider>(context, listen: false);
+                                  final isAdFree = authProvider.userModel?.adFree ?? false || purchaseProvider.isPurchased;
                                   final canShow = await adProvider.canShowRewardedAd(material.id, isAdFree: isAdFree);
                                   
                                   if (!context.mounted) return;
 
+                                  // If canShow is true, user must watch ad (5+ minutes passed or first time)
                                   if (canShow && adProvider.isRewardedAdLoaded) {
                                     showDialog(
                                       context: context,
-                                      builder: (context) => AlertDialog(
+                                      barrierDismissible: false,
+                                      builder: (dialogContext) => AlertDialog(
                                         title: const Text('Watch Ad'),
                                         content: const Text(
-                                          'Please watch a short ad to access this study material.',
+                                          'Please watch the full ad to access this study material. The PDF will open automatically after the ad completes.',
                                         ),
                                         actions: [
                                           TextButton(
-                                            onPressed: () => Navigator.pop(context),
+                                            onPressed: () => Navigator.pop(dialogContext),
                                             child: const Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              Navigator.pop(dialogContext);
+                                              _showPremiumUpgradeDialog(context, authProvider);
+                                            },
+                                            child: const Text(
+                                              'Upgrade to Premium',
+                                              style: TextStyle(color: Colors.amber),
+                                            ),
                                           ),
                                           ElevatedButton(
                                             onPressed: () async {
-                                              Navigator.pop(context);
-                                              await adProvider.showRewardedAd(
+                                              Navigator.pop(dialogContext);
+                                              final watched = await adProvider.showRewardedAd(
                                                 material.id,
                                                 () {
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (_) => PdfViewerScreen(material: material),
-                                                    ),
-                                                  );
+                                                  if (context.mounted) {
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (_) => PdfViewerScreen(material: material),
+                                                      ),
+                                                    );
+                                                  }
                                                 },
                                               );
+                                              
+                                              // If user didn't watch the ad, show a message
+                                              if (!watched && context.mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('Please watch the full ad to access the PDF'),
+                                                    backgroundColor: Colors.orange,
+                                                  ),
+                                                );
+                                              }
                                             },
                                             child: const Text('Watch Ad'),
                                           ),
@@ -215,6 +242,8 @@ class _SubcategoryDetailScreenState extends State<SubcategoryDetailScreen> {
                                       ),
                                     );
                                   } else {
+                                    // canShow is false - either premium user or within 5 minutes
+                                    // Allow direct access to PDF
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
@@ -240,6 +269,126 @@ class _SubcategoryDetailScreenState extends State<SubcategoryDetailScreen> {
               alignment: Alignment.center,
               child: AdWidget(ad: adProvider.bannerAd!),
             ),
+        ],
+      ),
+    );
+  }
+
+  void _showPremiumUpgradeDialog(BuildContext context, AuthProvider authProvider) {
+    final purchaseProvider = Provider.of<PurchaseProvider>(context, listen: false);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.workspace_premium, color: Colors.amber),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Upgrade to Premium',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Remove ads forever!',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              _buildFeature(Icons.block, 'No rewarded ads'),
+              _buildFeature(Icons.lock_open, 'Access premium categories'),
+              _buildFeature(Icons.flash_on, 'Instant PDF access'),
+              _buildFeature(Icons.auto_awesome, 'Premium badge'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.workspace_premium, color: Colors.amber),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'One-time payment of ₹100',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: purchaseProvider.isLoading
+                ? null
+                : () async {
+                    final success = await purchaseProvider.purchaseAdFree(authProvider.user!.uid);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      if (success) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Row(
+                              children: [
+                                Icon(Icons.workspace_premium, color: Colors.white),
+                                SizedBox(width: 8),
+                                Text('🎉 Welcome to Premium!'),
+                              ],
+                            ),
+                            backgroundColor: Colors.amber,
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Purchase failed. Please try again.')),
+                        );
+                      }
+                    }
+                  },
+            child: purchaseProvider.isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.workspace_premium),
+                      SizedBox(width: 8),
+                      Text('Upgrade ₹100'),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeature(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.green),
+          const SizedBox(width: 12),
+          Text(text),
         ],
       ),
     );
