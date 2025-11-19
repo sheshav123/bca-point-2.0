@@ -1,6 +1,6 @@
-import 'dart:io';
+import 'dart:io' show Platform;
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 
 class AdService {
   static final AdService _instance = AdService._internal();
@@ -38,6 +38,10 @@ class AdService {
 
   /// Get next banner ad unit ID (rotates through multiple IDs)
   String getNextBannerAdUnitId() {
+    if (kIsWeb) {
+      // Web doesn't support AdMob, return empty string
+      return '';
+    }
     final ids = Platform.isAndroid ? _androidBannerIds : _iosBannerIds;
     final id = ids[_currentAdIndex % ids.length];
     _currentAdIndex++;
@@ -64,6 +68,10 @@ class AdService {
 
   /// Get next rewarded ad unit ID (rotates through multiple IDs)
   String getNextRewardedAdUnitId() {
+    if (kIsWeb) {
+      // Web doesn't support AdMob, return empty string
+      return '';
+    }
     final ids = Platform.isAndroid ? _androidRewardedIds : _iosRewardedIds;
     final id = ids[_currentRewardedIndex % ids.length];
     _currentRewardedIndex++;
@@ -136,6 +144,10 @@ class AdService {
 
   /// Initialize AdMob
   static Future<void> initialize() async {
+    if (kIsWeb) {
+      debugPrint('⚠️ AdMob not supported on web, skipping initialization');
+      return;
+    }
     await MobileAds.instance.initialize();
     debugPrint('AdMob initialized');
   }

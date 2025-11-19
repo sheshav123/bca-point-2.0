@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -51,6 +52,11 @@ class AdProvider extends ChangeNotifier {
   }
 
   void loadBannerAd() {
+    if (kIsWeb) {
+      debugPrint('⚠️ Banner ads not supported on web, skipping');
+      return;
+    }
+    
     debugPrint('🎯 Loading banner ad...');
     
     // Dispose existing ad if any
@@ -111,6 +117,11 @@ class AdProvider extends ChangeNotifier {
   }
 
   void loadRewardedAd() {
+    if (kIsWeb) {
+      debugPrint('⚠️ Rewarded ads not supported on web, skipping');
+      return;
+    }
+    
     if (_isRewardedAdLoaded) {
       debugPrint('⚠️ Rewarded ad already loaded, skipping');
       return;
