@@ -59,28 +59,46 @@ class LoginScreen extends StatelessWidget {
                           ? const CircularProgressIndicator(color: Colors.white)
                           : ElevatedButton.icon(
                               onPressed: () async {
-                                final success = await authProvider.signInWithGoogle();
-                                if (success && context.mounted) {
-                                  // Wait a bit for user data to load
-                                  await Future.delayed(const Duration(milliseconds: 500));
-                                  
-                                  if (!context.mounted) return;
-                                  
-                                  // Check if user profile exists
-                                  if (authProvider.userModel != null) {
-                                    // Existing user - go to home screen
-                                    debugPrint('Login: Existing user detected, navigating to Home');
-                                    Navigator.of(context).pushReplacement(
-                                      MaterialPageRoute(
-                                        builder: (_) => const HomeScreen(),
-                                      ),
-                                    );
-                                  } else {
-                                    // New user - go to profile setup
-                                    debugPrint('Login: New user detected, navigating to Profile Setup');
-                                    Navigator.of(context).pushReplacement(
-                                      MaterialPageRoute(
-                                        builder: (_) => const ProfileSetupScreen(),
+                                try {
+                                  final success = await authProvider.signInWithGoogle();
+                                  if (success && context.mounted) {
+                                    // Wait longer for user data to load
+                                    debugPrint('Login: Sign-in successful, waiting for user data...');
+                                    await Future.delayed(const Duration(milliseconds: 1500));
+                                    
+                                    if (!context.mounted) return;
+                                    
+                                    // Refresh user data to ensure it's loaded
+                                    await authProvider.refreshUserData();
+                                    
+                                    if (!context.mounted) return;
+                                    
+                                    // Check if user profile exists
+                                    if (authProvider.userModel != null) {
+                                      // Existing user - go to home screen
+                                      debugPrint('Login: Existing user detected, navigating to Home');
+                                      Navigator.of(context).pushReplacement(
+                                        MaterialPageRoute(
+                                          builder: (_) => const HomeScreen(),
+                                        ),
+                                      );
+                                    } else {
+                                      // New user - go to profile setup
+                                      debugPrint('Login: New user detected, navigating to Profile Setup');
+                                      Navigator.of(context).pushReplacement(
+                                        MaterialPageRoute(
+                                          builder: (_) => const ProfileSetupScreen(),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                } catch (e) {
+                                  debugPrint('Login: Error during sign-in: $e');
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Sign-in failed: ${e.toString()}'),
+                                        backgroundColor: Colors.red,
                                       ),
                                     );
                                   }
