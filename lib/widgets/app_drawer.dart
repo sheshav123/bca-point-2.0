@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
@@ -259,6 +260,86 @@ class AppDrawer extends StatelessWidget {
               }
             },
           ),
+          const Divider(),
+          // Cross-platform links
+          if (kIsWeb)
+            // Show "Download Android App" on web
+            ListTile(
+              leading: const Icon(Icons.android, color: Colors.green),
+              title: const Text('Download Android App'),
+              subtitle: const Text('Get the mobile app from Play Store'),
+              trailing: const Icon(Icons.download, size: 20),
+              onTap: () async {
+                Navigator.pop(context);
+                final Uri playStoreUri = Uri.parse(
+                  'https://play.google.com/store/apps/details?id=com.tech.practice&pcampaignid=web_share',
+                );
+                
+                try {
+                  if (await canLaunchUrl(playStoreUri)) {
+                    await launchUrl(
+                      playStoreUri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Could not open Play Store'),
+                        ),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Error opening Play Store'),
+                      ),
+                    );
+                  }
+                }
+              },
+            )
+          else
+            // Show "Visit Web Version" on mobile
+            ListTile(
+              leading: const Icon(Icons.language, color: Colors.blue),
+              title: const Text('Visit Web Version'),
+              subtitle: const Text('Access from any browser'),
+              trailing: const Icon(Icons.open_in_new, size: 20),
+              onTap: () async {
+                Navigator.pop(context);
+                final Uri webUri = Uri.parse(
+                  'https://sheshav123.github.io/bca-point-2.0/',
+                );
+                
+                try {
+                  if (await canLaunchUrl(webUri)) {
+                    await launchUrl(
+                      webUri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Could not open web browser'),
+                        ),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Error opening web version'),
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.delete_forever, color: Colors.red),
