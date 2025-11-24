@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/subcategory_model.dart';
 import '../providers/category_provider.dart';
 import '../providers/ad_provider.dart';
@@ -154,6 +153,9 @@ class _SubcategoryDetailScreenState extends State<SubcategoryDetailScreen> {
                               margin: const EdgeInsets.only(bottom: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
+                                side: material.isAdFree 
+                                    ? const BorderSide(color: Colors.green, width: 2)
+                                    : BorderSide.none,
                               ),
                               child: ListTile(
                                 contentPadding: const EdgeInsets.all(16),
@@ -164,12 +166,65 @@ class _SubcategoryDetailScreenState extends State<SubcategoryDetailScreen> {
                                     color: Colors.red,
                                   ),
                                 ),
-                                title: Text(
-                                  material.title,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                  ),
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        material.title,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                    if (material.isAdFree)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.block, size: 12, color: Colors.white),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'AD-FREE',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    if (material.imageUrls.isNotEmpty)
+                                      Container(
+                                        margin: const EdgeInsets.only(left: 4),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.image, size: 12, color: Colors.white),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${material.imageUrls.length}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 subtitle: material.description != null
                                     ? Padding(
@@ -179,6 +234,17 @@ class _SubcategoryDetailScreenState extends State<SubcategoryDetailScreen> {
                                     : null,
                                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                 onTap: () async {
+                                  // If material is ad-free, skip ads entirely
+                                  if (material.isAdFree) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => PdfViewerScreen(material: material),
+                                      ),
+                                    );
+                                    return;
+                                  }
+
                                   final authProvider = Provider.of<AuthProvider>(context, listen: false);
                                   final purchaseProvider = Provider.of<PurchaseProvider>(context, listen: false);
                                   final isAdFree = authProvider.userModel?.adFree ?? false || purchaseProvider.isPurchased;

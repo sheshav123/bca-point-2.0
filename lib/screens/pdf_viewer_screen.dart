@@ -1,11 +1,9 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
-import 'package:provider/provider.dart';
 import '../models/study_material_model.dart';
 import '../services/secure_pdf_cache.dart';
 import '../widgets/banner_ad_widget.dart';
-import '../providers/auth_provider.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final StudyMaterialModel material;
@@ -120,6 +118,20 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
               padding: EdgeInsets.only(right: 8),
               child: Icon(Icons.offline_bolt, color: Colors.green),
             ),
+          if (widget.material.isAdFree)
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: Tooltip(
+                message: 'Ad-Free Content',
+                child: Icon(Icons.block, color: Colors.green),
+              ),
+            ),
+          if (widget.material.imageUrls.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.image),
+              onPressed: () => _showImages(context),
+              tooltip: 'View Images (${widget.material.imageUrls.length})',
+            ),
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             onPressed: () {
@@ -167,6 +179,32 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                           ),
                         ],
                       ),
+                      if (widget.material.isAdFree) ...[
+                        const SizedBox(height: 8),
+                        const Row(
+                          children: [
+                            Icon(Icons.block, size: 16, color: Colors.green),
+                            SizedBox(width: 8),
+                            Text(
+                              'Ad-Free Content',
+                              style: TextStyle(fontSize: 12, color: Colors.green),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (widget.material.imageUrls.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.image, size: 16, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${widget.material.imageUrls.length} image(s) attached',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       const Text(
                         'Note: PDFs are encrypted and cannot be shared to protect copyright.',
@@ -193,8 +231,101 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       body: Column(
         children: [
           Expanded(child: _buildBody()),
-          const BannerAdWidget(),
+          // Only show banner ad if material is NOT ad-free
+          if (!widget.material.isAdFree) const BannerAdWidget(),
         ],
+      ),
+    );
+  }
+
+  void _showImages(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text('${widget.material.title} - Images'),
+          ),
+          body: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: widget.material.imageUrls.length,
+            itemBuilder: (context, index) {
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        'Image ${index + 1}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => _showFullImage(context, widget.material.imageUrls[index]),
+                      child: Image.network(
+                        widget.material.imageUrls[index],
+                        fit: BoxFit.contain,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Icon(Icons.error, size: 48, color: Colors.red),
+                                  SizedBox(height: 8),
+                                  Text('Failed to load image'),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFullImage(BuildContext context, String imageUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.network(imageUrl),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -4,8 +4,10 @@ class StudyMaterialModel {
   final String title;
   final String? description;
   final String pdfUrl;
+  final List<String> imageUrls; // New: Support for multiple images
   final int order;
   final DateTime createdAt;
+  final bool isAdFree; // New: Ad-free option
 
   StudyMaterialModel({
     required this.id,
@@ -13,8 +15,10 @@ class StudyMaterialModel {
     required this.title,
     this.description,
     required this.pdfUrl,
+    this.imageUrls = const [],
     required this.order,
     required this.createdAt,
+    this.isAdFree = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -24,8 +28,10 @@ class StudyMaterialModel {
       'title': title,
       'description': description,
       'pdfUrl': pdfUrl,
+      'imageUrls': imageUrls,
       'order': order,
       'createdAt': createdAt.toIso8601String(),
+      'isAdFree': isAdFree,
     };
   }
 
@@ -36,8 +42,12 @@ class StudyMaterialModel {
       title: map['title'] ?? '',
       description: map['description'],
       pdfUrl: map['pdfUrl'] ?? '',
+      imageUrls: map['imageUrls'] != null 
+          ? List<String>.from(map['imageUrls']) 
+          : [],
       order: map['order'] ?? 0,
       createdAt: DateTime.parse(map['createdAt']),
+      isAdFree: map['isAdFree'] ?? false,
     );
   }
 }
