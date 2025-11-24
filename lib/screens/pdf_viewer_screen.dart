@@ -251,8 +251,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                 },
               ),
             ),
-            // Only show banner ad if material is NOT ad-free
-            if (!widget.material.isAdFree) const BannerAdWidget(),
+            // Always show banner ads (even for ad-free materials)
+            const BannerAdWidget(),
+            const SizedBox(height: 4),
+            const BannerAdWidget(),
           ],
         ),
       );
@@ -381,8 +383,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       body: Column(
         children: [
           Expanded(child: _buildBody()),
-          // Only show banner ad if material is NOT ad-free
-          if (!widget.material.isAdFree) const BannerAdWidget(),
+          // Always show banner ads (even for ad-free materials)
+          const BannerAdWidget(),
+          const SizedBox(height: 4),
+          const BannerAdWidget(),
         ],
       ),
     );

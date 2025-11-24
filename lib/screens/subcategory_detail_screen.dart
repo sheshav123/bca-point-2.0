@@ -264,7 +264,7 @@ class _SubcategoryDetailScreenState extends State<SubcategoryDetailScreen> {
                                     return;
                                   }
                                   
-                                  // If material is ad-free, skip ads entirely
+                                  // If material is ad-free, skip REWARDED ads only (banner ads still show)
                                   if (material.isAdFree) {
                                     Navigator.push(
                                       context,
