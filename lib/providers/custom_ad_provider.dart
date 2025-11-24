@@ -19,6 +19,7 @@ class CustomAdProvider extends ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
+      debugPrint('📢 Fetching custom ads from Firestore...');
       final snapshot = await _firestore
           .collection('customAds')
           .where('isEnabled', isEqualTo: true)
@@ -26,10 +27,16 @@ class CustomAdProvider extends ChangeNotifier {
           .get();
 
       _ads = snapshot.docs
-          .map((doc) => CustomAdModel.fromMap(doc.data(), doc.id))
+          .map((doc) {
+            debugPrint('📢 Found ad: ${doc.data()}');
+            return CustomAdModel.fromMap(doc.data(), doc.id);
+          })
           .toList();
 
-      debugPrint('📢 Loaded ${_ads.length} custom ads');
+      debugPrint('📢 Loaded ${_ads.length} enabled custom ads');
+      if (_ads.isNotEmpty) {
+        debugPrint('📢 First ad: ${_ads[0].title}');
+      }
 
       _isLoading = false;
       notifyListeners();

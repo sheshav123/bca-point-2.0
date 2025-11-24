@@ -42,12 +42,19 @@ class _HomeScreenState extends State<HomeScreen> {
       Provider.of<NotificationProvider>(context, listen: false).loadNotifications(isPremium);
       
       // Load and show custom ad
+      debugPrint('🎯 Loading custom ads...');
       final customAdProvider = Provider.of<CustomAdProvider>(context, listen: false);
       await customAdProvider.loadAds();
       
+      debugPrint('🎯 Custom ads loaded: ${customAdProvider.ads.length}');
+      
       if (mounted) {
         final shouldShow = await customAdProvider.shouldShowAd();
+        debugPrint('🎯 Should show ad: $shouldShow');
+        debugPrint('🎯 Current ad: ${customAdProvider.currentAd?.title}');
+        
         if (shouldShow && customAdProvider.currentAd != null && mounted) {
+          debugPrint('🎯 Showing custom ad dialog...');
           // Show ad after a short delay
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
@@ -58,6 +65,8 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             }
           });
+        } else {
+          debugPrint('🎯 Not showing ad - shouldShow: $shouldShow, currentAd: ${customAdProvider.currentAd != null}');
         }
       }
     });
