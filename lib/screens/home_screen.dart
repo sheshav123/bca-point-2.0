@@ -6,6 +6,8 @@ import '../providers/category_provider.dart';
 import '../providers/ad_provider.dart';
 import '../providers/purchase_provider.dart';
 import '../providers/notification_provider.dart';
+import '../providers/custom_ad_provider.dart';
+import '../widgets/custom_ad_dialog.dart';
 import '../widgets/app_drawer.dart';
 import 'category_detail_screen.dart';
 import 'debug_screen.dart';
@@ -24,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final purchaseProvider = Provider.of<PurchaseProvider>(context, listen: false);
       final isPremium = authProvider.userModel?.adFree == true || purchaseProvider.isPurchased;
@@ -38,6 +40,26 @@ class _HomeScreenState extends State<HomeScreen> {
       adProvider.loadRewardedAd();
       
       Provider.of<NotificationProvider>(context, listen: false).loadNotifications(isPremium);
+      
+      // Load and show custom ad
+      final customAdProvider = Provider.of<CustomAdProvider>(context, listen: false);
+      await customAdProvider.loadAds();
+      
+      if (mounted) {
+        final shouldShow = await customAdProvider.shouldShowAd();
+        if (shouldShow && customAdProvider.currentAd != null && mounted) {
+          // Show ad after a short delay
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              showDialog(
+                context: context,
+                barrierDismissible: true,
+                builder: (context) => CustomAdDialog(ad: customAdProvider.currentAd!),
+              );
+            }
+          });
+        }
+      }
     });
   }
 
