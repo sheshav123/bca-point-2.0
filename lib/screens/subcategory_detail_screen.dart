@@ -361,12 +361,19 @@ class _SubcategoryDetailScreenState extends State<SubcategoryDetailScreen> {
               },
             ),
           ),
-          if (adProvider.isBannerAdLoaded && adProvider.bannerAd != null)
+          if (adProvider.isBannerAdLoaded && adProvider.bannerAd != null) ...[
             Container(
               height: 50,
               alignment: Alignment.center,
               child: AdWidget(ad: adProvider.bannerAd!),
             ),
+            const SizedBox(height: 4),
+            Container(
+              height: 50,
+              alignment: Alignment.center,
+              child: AdWidget(ad: adProvider.bannerAd!),
+            ),
+          ],
         ],
       ),
     );
