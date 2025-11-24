@@ -148,6 +148,25 @@ class _SubcategoryDetailScreenState extends State<SubcategoryDetailScreen> {
                             ),
                           ),
                           ...materials.map((material) {
+                            // Determine icon and color based on content type
+                            IconData materialIcon;
+                            Color iconColor;
+                            Color iconBgColor;
+                            
+                            if (material.hasPdf && material.hasImages) {
+                              materialIcon = Icons.collections;
+                              iconColor = Colors.purple;
+                              iconBgColor = Colors.purple.withOpacity(0.1);
+                            } else if (material.hasPdf) {
+                              materialIcon = Icons.picture_as_pdf;
+                              iconColor = Colors.red;
+                              iconBgColor = Colors.red.withOpacity(0.1);
+                            } else {
+                              materialIcon = Icons.image;
+                              iconColor = Colors.blue;
+                              iconBgColor = Colors.blue.withOpacity(0.1);
+                            }
+                            
                             return Card(
                               elevation: 2,
                               margin: const EdgeInsets.only(bottom: 12),
@@ -160,10 +179,10 @@ class _SubcategoryDetailScreenState extends State<SubcategoryDetailScreen> {
                               child: ListTile(
                                 contentPadding: const EdgeInsets.all(16),
                                 leading: CircleAvatar(
-                                  backgroundColor: Colors.red.withOpacity(0.1),
-                                  child: const Icon(
-                                    Icons.picture_as_pdf,
-                                    color: Colors.red,
+                                  backgroundColor: iconBgColor,
+                                  child: Icon(
+                                    materialIcon,
+                                    color: iconColor,
                                   ),
                                 ),
                                 title: Row(
@@ -234,6 +253,17 @@ class _SubcategoryDetailScreenState extends State<SubcategoryDetailScreen> {
                                     : null,
                                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                 onTap: () async {
+                                  // If material has only images (no PDF), open image viewer directly
+                                  if (!material.hasPdf && material.hasImages) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => PdfViewerScreen(material: material),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  
                                   // If material is ad-free, skip ads entirely
                                   if (material.isAdFree) {
                                     Navigator.push(

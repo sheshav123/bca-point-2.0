@@ -38,6 +38,14 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   }
 
   Future<void> _loadPdf() async {
+    // Skip PDF loading if material has no PDF
+    if (!widget.material.hasPdf) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    
     try {
       setState(() {
         _isLoading = true;
@@ -45,12 +53,12 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       });
 
       // Check if PDF is cached
-      final isCached = await _cache.isCached(widget.material.pdfUrl);
+      final isCached = await _cache.isCached(widget.material.pdfUrl!);
       
       if (isCached) {
         // Try to load from cache
         debugPrint('📂 Loading PDF from cache...');
-        final cachedData = await _cache.getCachedPdf(widget.material.pdfUrl);
+        final cachedData = await _cache.getCachedPdf(widget.material.pdfUrl!);
         
         if (cachedData != null && cachedData.isNotEmpty) {
           debugPrint('✅ Loaded from cache: ${cachedData.length} bytes');
@@ -63,14 +71,14 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         } else {
           // Cache is corrupted, clear it and re-download
           debugPrint('⚠️ Cache corrupted or empty, clearing and re-downloading...');
-          await _cache.clearPdf(widget.material.pdfUrl);
+          await _cache.clearPdf(widget.material.pdfUrl!);
         }
       }
 
       // Download and cache
       debugPrint('⬇️ Downloading PDF...');
       await _cache.downloadAndCache(
-        widget.material.pdfUrl,
+        widget.material.pdfUrl!,
         widget.material.id,
         onProgress: (progress) {
           if (mounted) {
@@ -82,7 +90,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       );
 
       // Load the newly cached data
-      final cachedData = await _cache.getCachedPdf(widget.material.pdfUrl);
+      final cachedData = await _cache.getCachedPdf(widget.material.pdfUrl!);
       
       if (cachedData != null && cachedData.isNotEmpty) {
         debugPrint('✅ PDF loaded successfully: ${cachedData.length} bytes');
@@ -109,6 +117,148 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // If material has only images (no PDF), show images directly
+    if (!widget.material.hasPdf && widget.material.hasImages) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.material.title),
+          actions: [
+            if (widget.material.isAdFree)
+              const Padding(
+                padding: EdgeInsets.only(right: 8),
+                child: Tooltip(
+                  message: 'Ad-Free Content',
+                  child: Icon(Icons.block, color: Colors.green),
+                ),
+              ),
+            IconButton(
+              icon: const Icon(Icons.info_outline),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('About'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.material.title,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        if (widget.material.description != null) ...[
+                          const SizedBox(height: 8),
+                          Text(widget.material.description!),
+                        ],
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            const Icon(Icons.image, size: 16, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${widget.material.imageUrls.length} image(s)',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                        if (widget.material.isAdFree) ...[
+                          const SizedBox(height: 8),
+                          const Row(
+                            children: [
+                              Icon(Icons.block, size: 16, color: Colors.green),
+                              SizedBox(width: 8),
+                              Text(
+                                'Ad-Free Content',
+                                style: TextStyle(fontSize: 12, color: Colors.green),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: widget.material.imageUrls.length,
+                itemBuilder: (context, index) {
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text(
+                            'Image ${index + 1} of ${widget.material.imageUrls.length}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => _showFullImage(context, widget.material.imageUrls[index]),
+                          child: Image.network(
+                            widget.material.imageUrls[index],
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(32),
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Padding(
+                                padding: EdgeInsets.all(32),
+                                child: Center(
+                                  child: Column(
+                                    children: [
+                                      Icon(Icons.error, size: 48, color: Colors.red),
+                                      SizedBox(height: 8),
+                                      Text('Failed to load image'),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            // Only show banner ad if material is NOT ad-free
+            if (!widget.material.isAdFree) const BannerAdWidget(),
+          ],
+        ),
+      );
+    }
+    
+    // Original PDF viewer for materials with PDF
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.material.title),
