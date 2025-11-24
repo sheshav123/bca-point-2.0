@@ -10,6 +10,7 @@ import '../widgets/app_drawer.dart';
 import 'category_detail_screen.dart';
 import 'debug_screen.dart';
 import 'notifications_screen.dart';
+import 'notification_test_screen.dart';
 import 'profile_edit_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -95,17 +96,17 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          // Debug button - uncomment for testing
-          // IconButton(
-          //   icon: const Icon(Icons.bug_report),
-          //   onPressed: () {
-          //     Navigator.push(
-          //       context,
-          //       MaterialPageRoute(builder: (_) => const DebugScreen()),
-          //     );
-          //   },
-          //   tooltip: 'Debug Database',
-          // ),
+          // Notification Test button
+          IconButton(
+            icon: const Icon(Icons.notifications_active),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationTestScreen()),
+              );
+            },
+            tooltip: 'Test Notifications',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => categoryProvider.loadCategories(),
