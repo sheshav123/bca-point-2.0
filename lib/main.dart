@@ -9,6 +9,7 @@ import 'providers/ad_provider.dart';
 import 'providers/purchase_provider.dart';
 import 'providers/notification_provider.dart';
 import 'services/secure_pdf_cache.dart';
+import 'services/notification_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -24,6 +25,13 @@ void main() async {
     await MobileAds.instance.initialize();
   } catch (e) {
     debugPrint('AdMob initialization error: $e');
+  }
+  
+  // Initialize notification service
+  try {
+    await NotificationService().initialize();
+  } catch (e) {
+    debugPrint('Notification service initialization error: $e');
   }
   
   // Initialize secure PDF cache (non-blocking)
